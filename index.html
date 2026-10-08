@@ -118,18 +118,19 @@ function renderC1(){
    h+=bar(g,mean,"","mean");
   }else{
    const B=lbl(fm), acc=gridAcc(RS[fm],g);
-   h+=bar(g,acc,`<span class="dim"> ${B.short}${hasData(RS[fm])?(" n="+(gridObj(RS[fm],g).n_cells||"?")):" — not run yet"}</span>`,"",`background:${B.color}`);
+   h+=bar(g,acc,"","",`background:${B.color}`);
   }
  }
  $("c1").innerHTML=h;
 }
 function renderLB(){
  const fg=$("fgrid").value, fd=$("fdiff").value, fm=$("fmodel").value;
- if(fm&&!hasData(RS[fm])){$("lb").innerHTML=`<tr><td colspan="9" class="dim">${lbl(fm).label} — not run yet.</td></tr>`;return;}
- const RR=fm?RS[fm]:R, mlabel=fm?lbl(fm).short:"clef-f";
- let rows=((RR&&RR.per_image)||[]).filter(r=>(!fg||r.grid===fg)&&(!fd||r.difficulty===fd));
-  if(onlyPerfect)rows=rows.filter(r=>r.full_success===true);
- rows=[...rows].sort((a,b)=>{let x=a[sortK],y=b[sortK];if(x==null)return 1;if(y==null)return -1;
+  if(fm&&!hasData(RS[fm])){$("lb").innerHTML=`<tr><td colspan="9" class="dim">${lbl(fm).label} — not run yet.</td></tr>`;$("lbpg").innerHTML="";return;}
+ const keys=fm?[fm]:BACKENDS.filter(b=>hasData(RS[b.key])).map(b=>b.key);
+ let rows=[];
+ for(const k of keys)rows.push(...(((RS[k]&&RS[k].per_image)||[]).filter(r=>(!fg||r.grid===fg)&&(!fd||r.difficulty===fd)).map(r=>({k,r}))));
+  if(onlyPerfect)rows=rows.filter(x=>x.r.full_success===true);
+ rows=[...rows].sort((a,b)=>{let x=a.r[sortK],y=b.r[sortK];if(x==null)return 1;if(y==null)return -1;
   if(typeof x==="boolean")x=x?1:0;if(typeof y==="boolean")y=y?1:0;
   if(typeof x==="string")return sortDir*x.localeCompare(y);return sortDir*(x-y);});
  const npages=Math.max(1,Math.ceil(rows.length/LB_PER));
@@ -139,12 +140,12 @@ function renderLB(){
  const bp=$("bprev"),bn=$("bnext");
  if(bp)bp.onclick=()=>{lbPage=Math.max(0,lbPage-1);renderLB();};
  if(bn)bn.onclick=()=>{lbPage=Math.min(npages-1,lbPage+1);renderLB();};
- $("lb").innerHTML=page.map(r=>`<tr data-id="${r.image_id}" style="cursor:pointer"><td>${r.image_id}</td><td><img class="thumb" loading="lazy" src="./data/images/${r.image_id}.png"></td><td class="dim">${mlabel}</td><td>${r.grid}</td><td>${r.difficulty}</td><td class="${r.cell_acc==null?"dim":r.cell_acc===1?"ok":r.cell_acc<0.8?"bad":""}">${pct(r.cell_acc)}</td><td>${r.full_success==null?'<span class="dim">—</span>':r.full_success?'<span class="ok">✓</span>':'<span class="bad">✗</span>'}</td><td>${r.avg_conf??"—"}</td><td>${r.total_ms??"—"}</td></tr>`).join("")||`<tr><td colspan="9" class="dim">No rows match.</td></tr>`;
- document.querySelectorAll("#lb tr[data-id]").forEach(tr=>tr.onclick=()=>openImg(tr.dataset.id));
+ $("lb").innerHTML=page.map(x=>{const r=x.r;return `<tr data-id="${r.image_id}" data-m="${x.k}" style="cursor:pointer"><td>${r.image_id}</td><td><img class="thumb" loading="lazy" src="./data/images/${r.image_id}.png"></td><td class="dim">${lbl(x.k).short}</td><td>${r.grid}</td><td>${r.difficulty}</td><td class="${r.cell_acc==null?"dim":r.cell_acc===1?"ok":r.cell_acc<0.8?"bad":""}">${pct(r.cell_acc)}</td><td>${r.full_success==null?'<span class="dim">—</span>':r.full_success?'<span class="ok">✓</span>':'<span class="bad">✗</span>'}</td><td>${r.avg_conf??"—"}</td><td>${r.total_ms??"—"}</td></tr>`;}).join("")||`<tr><td colspan="9" class="dim">No rows match.</td></tr>`;
+ document.querySelectorAll("#lb tr[data-id]").forEach(tr=>tr.onclick=()=>openImg(tr.dataset.id,tr.dataset.m));
  document.querySelectorAll("th[data-k]").forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(sortK===k)sortDir*=-1;else{sortK=k;sortDir=k==="image_id"?1:1;}lbPage=0;renderLB();});
 }
-function openImg(id){
- const fm=$("fmodel").value, RR=fm?RS[fm]:R;
+function openImg(id,mk){
+ const RR=RS[mk]||R;
  const r=((RR&&RR.per_image)||[]).find(x=>x.image_id===id);if(!r)return;
  const ds=((RR&&RR.decisions)||[]).filter(d=>d.image_id===id);
  const pos=new Set(r.positive_cells||[]);
