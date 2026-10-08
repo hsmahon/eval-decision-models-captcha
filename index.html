@@ -55,9 +55,9 @@ img.thumb{width:64px;height:64px;object-fit:cover;border:1px solid #e8eef7;borde
 </div>
 <div id="c1" class="bars"></div></div>
 
-<div class="sec"><h2>model comparison — accuracy · latency · cost</h2><div id="cmp" class="dim">Loading backends…</div></div>
+<div class="sec"><h2>Model Comparison</h2><div id="cmp" class="dim">Loading backends…</div></div>
 
-<div class="sec"><h2>leaderboard — where does it do best / worst?</h2>
+<div class="sec"><h2>Leaderboard</h2>
 <div class="controls">
 <select id="fgrid"><option value="">all grids</option><option>3x3</option><option>3x4</option><option>4x4</option><option>4x5</option><option>5x5</option></select>
 <select id="fdiff"><option value="">all difficulties</option><option>easy</option><option>medium</option><option>hard</option></select>
@@ -66,6 +66,7 @@ img.thumb{width:64px;height:64px;object-fit:cover;border:1px solid #e8eef7;borde
 <div style="overflow-x:auto"><table><thead><tr>
 <th data-k="image_id">image ⇅</th><th>thumb</th><th>model</th><th data-k="grid">grid ⇅</th><th data-k="difficulty">diff ⇅</th><th data-k="cell_acc">cell-acc ⇅</th><th data-k="full_success">full ✓ ⇅</th><th data-k="avg_conf">avg conf ⇅</th><th data-k="total_ms">total ms ⇅</th>
 </tr></thead><tbody id="lb"></tbody></table></div>
+<div class="controls" id="lbpg" style="margin-top:8px"></div>
 <div id="modal"><div id="mbox"></div></div>
 
 <script>
@@ -74,7 +75,8 @@ const BACKENDS=[
  {key:"openai",label:"OpenAI Decisions",short:"openai",color:"#FFFFFF",local:false,mockLat:[180,320,520],mockCost:3.5},
 ];
 const ORDER=["3x3","3x4","4x4","4x5","5x5"], DIFFS=["easy","medium","hard"];
-let RS={}, R=null, sortK="cell_acc", sortDir=1, onlyPerfect=false;
+let RS={}, R=null, sortK="cell_acc", sortDir=1, onlyPerfect=false, lbPage=0;
+const LB_PER=10;
 const $=id=>document.getElementById(id);
 const lbl=k=>(BACKENDS.find(b=>b.key===k)||{label:k,short:k,color:"var(--grn)"});
 const hasData=r=>!!(r&&r.decisions&&r.decisions.length&&((r.manifest||{}).n_images_run>0));
@@ -91,21 +93,19 @@ async function loadOne(key){
 async function main(){
  for(const b of BACKENDS){RS[b.key]=await loadOne(b.key);}
  R=RS["clef-flash"];
- {const s=$("fmodel");BACKENDS.forEach(b=>{const o=document.createElement("option");o.value=b.key;o.textContent=b.label+(hasData(RS[b.key])?"":" — not run yet");s.appendChild(o);});
-  const full=BACKENDS.find(b=>hasData(RS[b.key])&&((RS[b.key].manifest||{}).full_run));
-  if(full)s.value=full.key;}
+ {const s=$("fmodel");BACKENDS.forEach(b=>{const o=document.createElement("option");o.value=b.key;o.textContent=b.label+(hasData(RS[b.key])?"":" — not run yet");s.appendChild(o);});}
  if(!hasData(R))$("pending").style.display="block";
  renderAll();
 }
 function renderAll(){renderC1();renderCmp();renderLB();}
 function runStatus(k){const r=RS[k];if(!hasData(r))return "not run yet";const m=r.manifest||{};return m.full_run?`full (${m.n_images_run}/${m.n_images_total||150})`:`smoke (${m.n_images_run||0}/${m.n_images_total||150})`;}
 function renderCmp(){
- $("cmp").innerHTML=`<table><thead><tr><th>model</th><th>status</th><th>cells</th><th>accuracy</th><th>F1 pos</th><th>p50 / p95 / p99</th><th>est cost / 2,460 cells</th></tr></thead><tbody>${BACKENDS.map(b=>{
+ $("cmp").innerHTML=`<table><thead><tr><th>model</th><th>cells</th><th>accuracy</th><th>F1 pos</th><th>p50 / p95 / p99</th><th>est cost / 2,460 cells</th></tr></thead><tbody>${BACKENDS.map(b=>{
   const r=RS[b.key],o=(r&&r.overall)||{};const hd=hasData(r);
   const lat=hd?`${o.lat_median??"—"} / ${o.lat_p95??"—"} / ${o.lat_p99??"—"} ms`:(b.mockLat?`${b.mockLat[0]} / ${b.mockLat[1]} / ${b.mockLat[2]} ms`:`<span class="dim">—</span>`);
   const cost=hd?(((r.manifest||{}).est_cost_usd)??(b.local?"$0.00":"—")):(b.local?"$0.00":(b.mockCost!=null?`~$${b.mockCost.toFixed(2)}`:`<span class="dim">—</span>`));
   const cells=hd?o.n_cells:`<span class="dim">—</span>`;
-  return `<tr><td><span class="dot" style="background:${b.color}"></span>${b.label}</td><td class="${hd?"ok":"dim"}">${runStatus(b.key)}</td><td>${cells}</td><td>${hd?pct(o.accuracy):`<span class="dim">—</span>`}</td><td>${hd?(o.f1_pos??"—"):`<span class="dim">—</span>`}</td><td>${lat}</td><td>${typeof cost==="number"?(b.local?"$0.00":`$${cost.toFixed(2)}`):cost}</td></tr>`;}).join("")}</tbody></table>`;
+  return `<tr><td><span class="dot" style="background:${b.color}"></span>${b.label}</td><td>${cells}</td><td>${hd?pct(o.accuracy):`<span class="dim">—</span>`}</td><td>${hd?(o.f1_pos??"—"):`<span class="dim">—</span>`}</td><td>${lat}</td><td>${typeof cost==="number"?(b.local?"$0.00":`$${cost.toFixed(2)}`):cost}</td></tr>`;}).join("")}</tbody></table>`;
 }
 function renderC1(){
  const fm=$("fmodel").value;
@@ -132,9 +132,16 @@ function renderLB(){
  rows=[...rows].sort((a,b)=>{let x=a[sortK],y=b[sortK];if(x==null)return 1;if(y==null)return -1;
   if(typeof x==="boolean")x=x?1:0;if(typeof y==="boolean")y=y?1:0;
   if(typeof x==="string")return sortDir*x.localeCompare(y);return sortDir*(x-y);});
- $("lb").innerHTML=rows.map(r=>`<tr data-id="${r.image_id}" style="cursor:pointer"><td>${r.image_id}</td><td><img class="thumb" loading="lazy" src="./data/images/${r.image_id}.png"></td><td class="dim">${mlabel}</td><td>${r.grid}</td><td>${r.difficulty}</td><td class="${r.cell_acc==null?"dim":r.cell_acc===1?"ok":r.cell_acc<0.8?"bad":""}">${pct(r.cell_acc)}</td><td>${r.full_success==null?'<span class="dim">—</span>':r.full_success?'<span class="ok">✓</span>':'<span class="bad">✗</span>'}</td><td>${r.avg_conf??"—"}</td><td>${r.total_ms??"—"}</td></tr>`).join("")||`<tr><td colspan="9" class="dim">No rows match.</td></tr>`;
+ const npages=Math.max(1,Math.ceil(rows.length/LB_PER));
+ if(lbPage>npages-1)lbPage=npages-1;
+ const page=rows.slice(lbPage*LB_PER,lbPage*LB_PER+LB_PER);
+ $("lbpg").innerHTML=rows.length?`<button id="bprev"${lbPage===0?" disabled":""}>← prev</button><span class="dim">page ${lbPage+1} / ${npages} · ${rows.length} images</span><button id="bnext"${lbPage>=npages-1?" disabled":""}>next →</button>`:"";
+ const bp=$("bprev"),bn=$("bnext");
+ if(bp)bp.onclick=()=>{lbPage=Math.max(0,lbPage-1);renderLB();};
+ if(bn)bn.onclick=()=>{lbPage=Math.min(npages-1,lbPage+1);renderLB();};
+ $("lb").innerHTML=page.map(r=>`<tr data-id="${r.image_id}" style="cursor:pointer"><td>${r.image_id}</td><td><img class="thumb" loading="lazy" src="./data/images/${r.image_id}.png"></td><td class="dim">${mlabel}</td><td>${r.grid}</td><td>${r.difficulty}</td><td class="${r.cell_acc==null?"dim":r.cell_acc===1?"ok":r.cell_acc<0.8?"bad":""}">${pct(r.cell_acc)}</td><td>${r.full_success==null?'<span class="dim">—</span>':r.full_success?'<span class="ok">✓</span>':'<span class="bad">✗</span>'}</td><td>${r.avg_conf??"—"}</td><td>${r.total_ms??"—"}</td></tr>`).join("")||`<tr><td colspan="9" class="dim">No rows match.</td></tr>`;
  document.querySelectorAll("#lb tr[data-id]").forEach(tr=>tr.onclick=()=>openImg(tr.dataset.id));
- document.querySelectorAll("th[data-k]").forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(sortK===k)sortDir*=-1;else{sortK=k;sortDir=k==="image_id"?1:1;}renderLB();});
+ document.querySelectorAll("th[data-k]").forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(sortK===k)sortDir*=-1;else{sortK=k;sortDir=k==="image_id"?1:1;}lbPage=0;renderLB();});
 }
 function openImg(id){
  const fm=$("fmodel").value, RR=fm?RS[fm]:R;
@@ -153,9 +160,9 @@ function openImg(id){
  $("mbox").innerHTML=`<div style="display:flex;gap:18px;flex-wrap:wrap"><div><div class="dim">${r.image_id} · ${r.grid} · ${r.difficulty} · acc ${pct(r.cell_acc)}</div><div class="ovlwrap" style="margin-top:8px"><img src="./data/images/${r.image_id}.png"><div class="ovl" style="grid-template-rows:repeat(${r.rows},1fr);grid-template-columns:repeat(${r.cols},1fr)">${cells}</div></div></div><div style="flex:1;min-width:260px">${right}<div style="margin-top:10px"><button onclick="document.getElementById('modal').style.display='none'">close</button></div></div></div>`;
  $("modal").style.display="flex";
 }
-$("fgrid").onchange=renderLB;$("fdiff").onchange=renderLB;
-$("fmodel").onchange=()=>renderAll();
-$("bperfect").onclick=e=>{onlyPerfect=!onlyPerfect;e.target.classList.toggle("on");renderLB();};
+$("fgrid").onchange=()=>{lbPage=0;renderLB();};$("fdiff").onchange=()=>{lbPage=0;renderLB();};
+$("fmodel").onchange=()=>{lbPage=0;renderAll();};
+$("bperfect").onclick=e=>{onlyPerfect=!onlyPerfect;lbPage=0;e.target.classList.toggle("on");renderLB();};
 $("modal").onclick=e=>{if(e.target.id==="modal")$("modal").style.display="none";};
 main();
 </script>
