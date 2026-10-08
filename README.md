@@ -15,9 +15,6 @@ How do decision models perform as visual decision complexity increases? I wanted
 | `d1` | Liquid `d1-3B` (open weights, text+vision) | local GPU | $0.00 |
 | `clef-flash` | Cloudflare Clef-flash 9B (`@cf/cloudflare/clef-flash`) | Workers AI | metered |
 | `openai` | OpenAI Decisions API (GPT-6 Luna, public beta) | hosted API | metered |
-| `jev` ★ control | TypeSafe Jev 1.13 (`typesafe/jev`) | hosted API | metered |
-
-Fixed prompt for every cell (prompt-v2-neutral, see `eval.ipynb` §2): `Is a stoplight visible in this image?` with explicit true/false criteria (whole-or-partial signals count; lookalikes excluded). Every eval call is one `noul` per cell crop; latency is measured per call in milliseconds.
 
 ## Dataset — COCO Photo Crops
 
