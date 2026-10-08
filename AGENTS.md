@@ -19,7 +19,7 @@ complexity increases, using CAPTCHA-style grids?
 | key | model | runner | cost basis |
 |---|---|---|---|
 | `strands` | `StrandsAgents/strands-decider-2B-hobson-v21` (LoRA on Qwen3.5-2B, frozen Qwen3.5 vision tower) | `eval.ipynb` §§2–4, Colab T4 | $0.00 local |
-| `d1` | `LiquidAI/d1-3B` (native `noul` head via `system_one`, `transformers>=5.14`, bf16 ~7–8 GB) | `eval_d1.ipynb` (Colab T4), same prompt-v2 + criteria | $0.00 local |
+| `d1` | `LiquidAI/d1-3B` (native `noul` head via `system_one`, `transformers>=5.14`, bf16 ~7–8 GB) | `eval.ipynb` §§5–7 (Colab T4), same prompt-v2 + criteria | $0.00 local |
 | `clef-flash` | `@cf/cloudflare/clef-flash` 9B (`noul` + native `criteria`, base64 `images[]`) | hosted script (removed; results kept) | $0.09/1M input tok (from `usage`) |
 | `openai` | `gpt-6-luna` via `POST /v1/decisions` (`predicate`, base64 data-URL) | hosted script (removed; results kept) | $0.10/1M input tok (measured ~345 tok/cell) |
 
@@ -46,7 +46,7 @@ openai 0.9435 (p50 226 ms, $0.10). Local backends pending (Colab).
 ## Repo layout
 
 - `eval.ipynb` — strands runner: §0 setup, §1 dataset check, §2 model load + crop/ask helpers, §3 run eval (`LIMIT`, `DRY_RUN_NO_MODEL`), §4 metrics → `results.json`.
-- `eval_d1.ipynb` — d1-3B runner (same structure, writes `data/results_d1.json`).
+- `eval.ipynb` §§5–7 — d1-3B runner (same structure, writes `data/results_d1.json`).
 - `data/images/` — 150 `.png` grids named by `image_id`.
 - `data/labels.jsonl`, `data/results*.json`, `data/ATTRIBUTION.md`, `data/README.dataset.md`.
 - `index.html` — 3-section leaderboard (see Tech stack).
