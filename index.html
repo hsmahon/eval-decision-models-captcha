@@ -1675,7 +1675,9 @@ async function loadOne(key){
 async function main(){
  for(const b of BACKENDS){RS[b.key]=await loadOne(b.key);}
  R=RS.strands;
- {const s=$("fmodel");BACKENDS.forEach(b=>{const o=document.createElement("option");o.value=b.key;o.textContent=b.label+(hasData(RS[b.key])?"":" — not run yet");s.appendChild(o);});}
+ {const s=$("fmodel");BACKENDS.forEach(b=>{const o=document.createElement("option");o.value=b.key;o.textContent=b.label+(hasData(RS[b.key])?"":" — not run yet");s.appendChild(o);});
+  const full=BACKENDS.find(b=>hasData(RS[b.key])&&((RS[b.key].manifest||{}).full_run));
+  if(full)s.value=full.key;}
  if(!hasData(R))$("pending").style.display="block";
  renderAll();
 }
