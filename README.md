@@ -16,6 +16,35 @@ Synthetic benchmark only (not for bypassing real CAPTCHAs). Per-cell task: “Do
 - `index.html` — single-file static page (inline CSS+JS). Reads `./data/results.json`. Never calls the model. Served from repo root on GH Pages.
 - `data/` — `images/*.png` + `labels.jsonl` (fixed artifact) + `results.json` (generated).
 
+## Dataset — why COCO photo crops
+
+The v1 cartoon-icon grids were too easy to dismiss: flat drawings, no texture,
+no clutter. The v2 grids in `data/images/` are real photographs, rebuilt from
+**COCO 2017** (via the Hugging Face mirror `detection-datasets/coco`,
+research use — see `data/ATTRIBUTION.md`), keeping the exact same
+`labels.jsonl` schema (IDs, grid sizes, difficulty, `positive_cells`).
+
+Why COCO specifically:
+
+- **Real pixels, free ground truth.** COCO ships bounding boxes for every
+  target class we need (traffic light, car, bus, bicycle, fire hydrant, stop
+  sign). Each grid cell is a square crop around a real annotated instance, so
+  cell-level labels stay deterministic — no hand-labeling, no guessing.
+- **Difficulty becomes visual, not decorative.** Easy cells get the largest,
+  most prominent instances; hard cells get the smallest/most cluttered ones
+  (ranked by box-area ratio). The easy/med/hard split now measures something.
+- **No real CAPTCHAs.** Deliberately not scraped from any CAPTCHA provider:
+  same eval signal (stoplight yes/no over N candidate regions) with zero
+  anti-abuse bypass implications and safe to publish.
+- **Reproducible.** `scripts/build_photogrids.py` regenerates all 150 grids
+  from the 4 pinned COCO shards (seed `20261008`); short pools (hydrant, stop
+  sign) are topped up with flip/context variants rather than new downloads.
+
+Grid spec: 150 images (30 each of 3×3, 3×4, 4×4, 4×5, 5×5), 320 px/cell,
+2,460 cells total. Per-cell label mix: car 388, bicycle 417, bus 327,
+stoplight 277, hydrant 347, sign 314, empty 390 (background crops from
+street-scene images only).
+
 ## Reproduce (GPU required)
 
 This box (4 CPU, 7 GB RAM, no GPU, no torch) cannot run the 2B vision model — CPU would OOM/crawl on 2,460 calls. Run on a Colab GPU or any Linux/Mac with a GPU:
