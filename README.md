@@ -1,8 +1,11 @@
-# Vision decision eval — `StrandsAgents/strands-decider-2B-hobson-v21`
+# Eval - Decision Models - CAPTCHA
 
-Question: how does a small vision decision model perform as visual decision complexity increases?
+How do decision models perform as visual decision complexity increases?
 
-Synthetic benchmark only (not for bypassing real CAPTCHAs). Per-cell task: “Does this square contain a stoplight?”
+> [!WARNING]
+>
+> This README was written by a human, but all code changes, and
+> additional documentation were authored entirely by Muse Spark 1.3 in OpenCode.
 
 ## Model (pinned)
 
@@ -10,19 +13,11 @@ Synthetic benchmark only (not for bypassing real CAPTCHAs). Per-cell task: “Do
 - Vision via `pip install "strands-decider[vision]"` (needs `transformers>=5.18`), loaded as `VisionDeciderModel`. No vision training; frozen Qwen3.5 tower.
 - Every eval call is one `noul` per cell crop with the fixed prompt above. See `eval.ipynb` §2.
 
-## Layout (3 things)
+## Dataset — COCO Photo Crops
 
-- `eval.ipynb` — the experiment. Runs the 150-image / 2,460-cell eval, writes `data/results.json`.
-- `index.html` — single-file static page (inline CSS+JS). Reads `./data/results.json`. Never calls the model. Served from repo root on GH Pages.
-- `data/` — `images/*.png` + `labels.jsonl` (fixed artifact) + `results.json` (generated).
-
-## Dataset — why COCO photo crops
-
-The v1 cartoon-icon grids were too easy to dismiss: flat drawings, no texture,
-no clutter. The v2 grids in `data/images/` are real photographs, rebuilt from
+The grids in `data/images/` are real photographs, rebuilt from
 **COCO 2017** (via the Hugging Face mirror `detection-datasets/coco`,
-research use — see `data/ATTRIBUTION.md`), keeping the exact same
-`labels.jsonl` schema (IDs, grid sizes, difficulty, `positive_cells`).
+research use — see `data/ATTRIBUTION.md`)
 
 Why COCO specifically:
 
@@ -33,21 +28,15 @@ Why COCO specifically:
 - **Difficulty becomes visual, not decorative.** Easy cells get the largest,
   most prominent instances; hard cells get the smallest/most cluttered ones
   (ranked by box-area ratio). The easy/med/hard split now measures something.
-- **No real CAPTCHAs.** Deliberately not scraped from any CAPTCHA provider:
-  same eval signal (stoplight yes/no over N candidate regions) with zero
-  anti-abuse bypass implications and safe to publish.
-- **Reproducible.** `scripts/build_photogrids.py` regenerates all 150 grids
-  from the 4 pinned COCO shards (seed `20261008`); short pools (hydrant, stop
-  sign) are topped up with flip/context variants rather than new downloads.
 
 Grid spec: 150 images (30 each of 3×3, 3×4, 4×4, 4×5, 5×5), 320 px/cell,
 2,460 cells total. Per-cell label mix: car 388, bicycle 417, bus 327,
 stoplight 277, hydrant 347, sign 314, empty 390 (background crops from
 street-scene images only).
 
-## Reproduce (GPU required)
+## Reproducing the Eval
 
-This box (4 CPU, 7 GB RAM, no GPU, no torch) cannot run the 2B vision model — CPU would OOM/crawl on 2,460 calls. Run on a Colab GPU or any Linux/Mac with a GPU:
+Run on a Colab GPU or any Linux/Mac with a GPU:
 
 Colab (GPU runtime → L4/T4):
 1. Upload this repo (or `git clone <url>`).
