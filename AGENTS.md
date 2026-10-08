@@ -18,7 +18,7 @@ complexity increases, using CAPTCHA-style grids?
 
 | key | model | runner | cost basis |
 |---|---|---|---|
-| `strands` | `StrandsAgents/strands-decider-2B-hobson-v21` (LoRA on Qwen3.5-2B, frozen Qwen3.5 vision tower) | `eval.ipynb` §§2–4, Colab T4 | $0.00 local |
+| `strands` | `StrandsAgents/strands-decider-2B-hobson-v21` (LoRA on Qwen3.5-2B, frozen Qwen3.5 vision tower) | `eval.ipynb` §§2–4, Colab T4 — install from git main: `pip install "strands-decider[vision] @ git+https://github.com/strands-labs/strands-decider.git"` (PyPI 0.1.0 is text-only, no `[vision]` extra) | $0.00 local |
 | `d1` | `LiquidAI/d1-3B` (native `noul` head via `system_one`, `transformers>=5.14`, bf16 ~7–8 GB) | `eval.ipynb` §§5–7 (Colab T4), same prompt-v2 + criteria | $0.00 local |
 | `clef-flash` | `@cf/cloudflare/clef-flash` 9B (`noul` + native `criteria`, base64 `images[]`) | hosted script (removed; results kept) | $0.09/1M input tok (from `usage`) |
 | `openai` | `gpt-6-luna` via `POST /v1/decisions` (`predicate`, base64 data-URL) | hosted script (removed; results kept) | $0.10/1M input tok (measured ~345 tok/cell) |
@@ -28,13 +28,15 @@ openai 0.9435 (p50 226 ms, $0.10). Local backends pending (Colab).
 
 ## Tech stack
 
-- Local Python: `strands-decider[vision]` (`transformers>=5.18`), `LiquidAI/d1-3B`
-  (`transformers>=5.14`, `trust_remote_code=True`), `pillow`. Metrics are
-  stdlib-only (`math`, `statistics`, `json`).
-- Hosted runners: stdlib-only (`urllib`) + `pillow` for cropping. No SDK needed.
-- Model APIs: strands `VisionDeciderModel.load(...)` → `ask_noul / noul / ask`
-  (CLI fallback `strands-decider ask --image crop.png --noul "..."`);
-  d1 `AutoModel.from_pretrained("LiquidAI/d1-3B")` → `system_one(None, {noul...}, images=[crop])`.
+- Local Python: `strands-decider[vision]` installed from git main
+  (`pip install "strands-decider[vision] @ git+https://github.com/strands-labs/strands-decider.git"`,
+  needs `transformers>=5.18`), `LiquidAI/d1-3B` (`transformers>=5.14`,
+  `trust_remote_code=True`), `pillow`. Metrics are stdlib-only
+  (`math`, `statistics`, `json`).
+- Model APIs: strands `load_vision_engine(...)` → `engine.ask_images(state, questions, images=[b64])`
+  with `NoulQuestion` (+ native `criteria`); answers are `NoulAnswer.noul` (no separate confidence).
+  CLI fallback: `strands-decider ask MODEL --state "" --image crop.png --noul "..."`.
+  d1: `AutoModel.from_pretrained("LiquidAI/d1-3B")` → `system_one(None, {noul...}, images=[crop])`.
 - Frontend: vanilla HTML/CSS/JS in `index.html`, no build step. Loads
   `./data/results.json` (strands) + `./data/results_<key>.json`, with embedded
   dry-run fallback for `file://`. Three sections: accuracy-vs-size chart (mean

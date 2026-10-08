@@ -11,7 +11,7 @@ How do decision models perform as visual decision complexity increases? I wanted
 
 | backend | model | runs where | cost |
 |---|---|---|---|
-| `strands` | `StrandsAgents/strands-decider-2B-hobson-v21` — `noul` yes/no + calibrated confidence, LoRA on Qwen3.5-2B, frozen Qwen3.5 vision tower (`transformers>=5.18`) | local GPU | $0.00 |
+| `strands` | `StrandsAgents/strands-decider-2B-hobson-v21` — `noul` yes/no, LoRA on Qwen3.5-2B, frozen Qwen3.5 vision tower (install from git main, PyPI 0.1.0 is text-only) | local GPU | $0.00 |
 | `d1` | Liquid `d1-3B` (open weights, text+vision) | local GPU | $0.00 |
 | `clef-flash` | Cloudflare Clef-flash 9B (`@cf/cloudflare/clef-flash`) | Workers AI | $0.09/1M input tok |
 | `openai` | OpenAI Decisions API (GPT-6 Luna, public beta) | hosted API | $0.10/1M input tok |
@@ -43,7 +43,7 @@ Colab (T4 GPU runtime):
 ```bash
 git clone https://github.com/hsmahon/strands-decider-vision-eval
 %cd strands-decider-vision-eval
-!pip install "strands-decider[vision]" pillow
+!pip install "strands-decider[vision] @ git+https://github.com/strands-labs/strands-decider.git" pillow
 ```
 1. Open `eval.ipynb` in Colab (File → Upload notebook). Cell 1 auto-clones the repo so `data/` is present — just run cells top to bottom.
 2. Run §0–§1 — confirm `labels.jsonl` loads (150 images) and package versions print.
@@ -54,7 +54,7 @@ git clone https://github.com/hsmahon/strands-decider-vision-eval
 
 Local:
 ```bash
-pip install "strands-decider[vision]" pillow
+pip install "strands-decider[vision] @ git+https://github.com/strands-labs/strands-decider.git" pillow
 # smoke, then full — same LIMIT pattern inside the notebook
 ```
 
