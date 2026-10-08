@@ -9,56 +9,43 @@ complexity increases, using CAPTCHA-style grids?
   with explicit true/false `criteria` (whole-or-partial signals count;
   lookalikes excluded). One typed yes/no call per cell crop.
 - Dataset: 150 fixed synthetic grids in `data/images/` (30 each of 3×3, 3×4, 4×4, 4×5, 5×5; 10 easy / 10 medium / 10 hard per size), 320 px/cell, 2,460 cells total. Real COCO 2017 photo crops (see `data/ATTRIBUTION.md`), not scraped CAPTCHAs.
-- Artifacts: eval runners (notebook for local, hosted scripts removed after runs) → one
+- Artifacts: eval runners (hosted scripts removed after runs) → one
   `data/results_<backend>.json` per backend → `index.html` (static dashboard,
   never calls any model).
 - Ethics: synthetic benchmark only, not for bypassing real CAPTCHAs.
 
-## Backends (Jev excluded — text-only, no image input)
+## Backends (hosted only — local runners removed at wrap-up)
 
-| key | model | runner | cost basis |
-|---|---|---|---|
-| `strands` | `StrandsAgents/strands-decider-2B-hobson-v21` (LoRA on Qwen3.5-2B, frozen Qwen3.5 vision tower) | `eval.ipynb` §§2–4, Colab T4 — install from git main: `pip install "strands-decider[vision] @ git+https://github.com/strands-labs/strands-decider.git"` (PyPI 0.1.0 is text-only, no `[vision]` extra) | $0.00 local |
-| `d1` | `LiquidAI/d1-3B` (native `noul` head via `system_one`, `transformers>=5.14`, bf16 ~7–8 GB) | `eval.ipynb` §§5–7 (Colab T4), same prompt-v2 + criteria | $0.00 local |
-| `clef-flash` | `@cf/cloudflare/clef-flash` 9B (`noul` + native `criteria`, base64 `images[]`) | hosted script (removed; results kept) | $0.09/1M input tok (from `usage`) |
-| `openai` | `gpt-6-luna` via `POST /v1/decisions` (`predicate`, base64 data-URL) | hosted script (removed; results kept) | $0.10/1M input tok (measured ~345 tok/cell) |
+| key | model | cost basis |
+|---|---|---|
+| `clef-flash` | `@cf/cloudflare/clef-flash` 9B (`noul` + native `criteria`, base64 `images[]`) | $0.09/1M input tok (from `usage`) |
+| `openai` | `gpt-6-luna` via `POST /v1/decisions` (`predicate`, base64 data-URL) | $0.10/1M input tok (measured ~345 tok/cell) |
 
-Results so far (2,460 cells each): clef-flash 0.9553 (p50 622 ms, $0.27),
-openai 0.9435 (p50 226 ms, $0.10). Local backends pending (Colab).
+Results (2,460 cells each): clef-flash 0.9553 (p50 622 ms, $0.27),
+openai 0.9435 (p50 226 ms, $0.10).
 
 ## Tech stack
 
-- Local Python: `strands-decider[vision]` installed from git main
-  (`pip install "strands-decider[vision] @ git+https://github.com/strands-labs/strands-decider.git"`,
-  needs `transformers>=5.18`), `LiquidAI/d1-3B` (`transformers>=5.14`,
-  `trust_remote_code=True`), `pillow`. Metrics are stdlib-only
-  (`math`, `statistics`, `json`).
-- Model APIs: strands `load_vision_engine(...)` → `engine.ask_images(state, questions, images=[b64])`
-  with `NoulQuestion` (+ native `criteria`); answers are `NoulAnswer.noul` (no separate confidence).
-  CLI fallback: `strands-decider ask MODEL --state "" --image crop.png --noul "..."`.
-  d1: `AutoModel.from_pretrained("LiquidAI/d1-3B")` → `system_one(None, {noul...}, images=[crop])`.
+- Model APIs: plain HTTPS calls — Clef-flash via Workers AI REST (`images[]` + `noul`
+  with native `criteria`), OpenAI via `POST /v1/decisions` (`predicate`, base64 data-URL).
+  Cell crops are inline base64 PNGs; metrics are stdlib-only (`math`, `statistics`, `json`).
 - Frontend: vanilla HTML/CSS/JS in `index.html`, no build step. Loads
-  `./data/results.json` (strands) + `./data/results_<key>.json`, with embedded
-  dry-run fallback for `file://`. Three sections: accuracy-vs-size chart (mean
-  default, single-model dropdown), model comparison (accuracy · p50/p95 ms · cost),
-  per-image leaderboard with cell overlay.
+  `./data/results_<key>.json` (one file per backend). Three sections:
+  accuracy-vs-size chart (mean default, single-model dropdown), model comparison
+  (accuracy · p50/p95 ms · cost), per-image leaderboard with cell overlay.
 - Data files: `data/labels.jsonl` (cell-level ground truth),
-  `data/results.json` + `data/results_<backend>.json` (manifest + decisions + aggregates).
+  `data/results*.json`, `data/ATTRIBUTION.md`, `data/README.dataset.md`.
 
 ## Repo layout
 
-- `eval.ipynb` — strands runner: §0 setup, §1 dataset check, §2 model load + crop/ask helpers, §3 run eval (`LIMIT`, `DRY_RUN_NO_MODEL`), §4 metrics → `results.json`.
-- `eval.ipynb` §§5–7 — d1-3B runner (same structure, writes `data/results_d1.json`).
+- `data/results_<backend>.json` — one per backend (manifest + decisions + aggregates).
 - `data/images/` — 150 `.png` grids named by `image_id`.
 - `data/labels.jsonl`, `data/results*.json`, `data/ATTRIBUTION.md`, `data/README.dataset.md`.
 - `index.html` — 3-section leaderboard (see Tech stack).
-- `README.md` — human-written intro + Colab/local repro + backend table.
+- `README.md` — human-written intro + repro + backend table.
 
 ## Workflows
 
-- Colab (local backends, T4 GPU): see `README.md`. Smoke `LIMIT = 5` before full
-  `LIMIT = None`. `eval.ipynb` writes `data/results.json` (the dashboard reads
-  strands from that filename — don't rename it).
 - Viewing results: GH Pages (auto-build from `main`), hard-refresh after deploy.
   Dashboard needs no server (embedded fallback covers `file://`).
 
@@ -67,6 +54,6 @@ openai 0.9435 (p50 226 ms, $0.10). Local backends pending (Colab).
 - Keep model IDs, prompt-v2 + criteria, and 150-image set pinned for comparability. Don't regenerate images or hand-edit labels.
 - Results schema: `manifest` (model, prompt, prompt_version, criteria, est_cost_usd, backend, n_images_run/150, full_run) + `overall` + `by_grid` + `by_grid_difficulty` + `per_image` + `decisions[]`; bump `schema_version` if changed.
 - Latency is per-decision-call milliseconds: `lat_median` = p50, `lat_p95` nearest-rank. Dashboard header: `p50 / p95`.
-- Local backends record `est_cost_usd: 0.0`; hosted compute it from metered input tokens.
-- Keep `index.html` model-free (reads results files only). Mock values only for unrun backends, untagged.
+- Hosted backends compute `est_cost_usd` from metered input tokens.
+- Keep `index.html` model-free (reads results files only).
 - All code/docs changes here are agent-authored (Muse Spark 1.3 in OpenCode); README intro stays human-written.
