@@ -53,7 +53,7 @@ openai 0.9435 (p50 226 ms, $0.10).
 
 - Keep model IDs, prompt-v2 + criteria, and 150-image set pinned for comparability. Don't regenerate images or hand-edit labels.
 - Results schema: `manifest` (model, prompt, prompt_version, criteria, est_cost_usd, backend, n_images_run/150, full_run) + `overall` + `by_grid` + `by_grid_difficulty` + `per_image` + `decisions[]`; bump `schema_version` if changed.
-- Latency is per-decision-call milliseconds: `lat_median` = p50, `lat_p95` nearest-rank. Dashboard header: `p50 / p95`.
+- Latency is per-decision-call milliseconds: `lat_median` = p50, `lat_p95` / `lat_p99` nearest-rank. Dashboard header: `p50 / p95 / p99`.
 - Hosted backends compute `est_cost_usd` from metered input tokens.
 - Keep `index.html` model-free (reads results files only).
 - All code/docs changes here are agent-authored (Muse Spark 1.3 in OpenCode); README intro stays human-written.

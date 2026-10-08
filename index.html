@@ -70,8 +70,8 @@ img.thumb{width:64px;height:64px;object-fit:cover;border:1px solid #e8eef7;borde
 
 <script>
 const BACKENDS=[
- {key:"clef-flash",label:"Clef-flash 9B",short:"clef-f",color:"#F6821F",local:false,mockLat:[120,210],mockCost:1.2},
- {key:"openai",label:"OpenAI Decisions",short:"openai",color:"#FFFFFF",local:false,mockLat:[180,320],mockCost:3.5},
+ {key:"clef-flash",label:"Clef-flash 9B",short:"clef-f",color:"#F6821F",local:false,mockLat:[120,210,340],mockCost:1.2},
+ {key:"openai",label:"OpenAI Decisions",short:"openai",color:"#FFFFFF",local:false,mockLat:[180,320,520],mockCost:3.5},
 ];
 const ORDER=["3x3","3x4","4x4","4x5","5x5"], DIFFS=["easy","medium","hard"];
 let RS={}, R=null, sortK="cell_acc", sortDir=1, onlyPerfect=false;
@@ -100,9 +100,9 @@ async function main(){
 function renderAll(){renderC1();renderCmp();renderLB();}
 function runStatus(k){const r=RS[k];if(!hasData(r))return "not run yet";const m=r.manifest||{};return m.full_run?`full (${m.n_images_run}/${m.n_images_total||150})`:`smoke (${m.n_images_run||0}/${m.n_images_total||150})`;}
 function renderCmp(){
- $("cmp").innerHTML=`<table><thead><tr><th>model</th><th>status</th><th>cells</th><th>accuracy</th><th>F1 pos</th><th>p50 / p95</th><th>est cost / 2,460 cells</th></tr></thead><tbody>${BACKENDS.map(b=>{
+ $("cmp").innerHTML=`<table><thead><tr><th>model</th><th>status</th><th>cells</th><th>accuracy</th><th>F1 pos</th><th>p50 / p95 / p99</th><th>est cost / 2,460 cells</th></tr></thead><tbody>${BACKENDS.map(b=>{
   const r=RS[b.key],o=(r&&r.overall)||{};const hd=hasData(r);
-  const lat=hd?`${o.lat_median??"—"} / ${o.lat_p95??"—"} ms`:(b.mockLat?`${b.mockLat[0]} / ${b.mockLat[1]} ms`:`<span class="dim">—</span>`);
+  const lat=hd?`${o.lat_median??"—"} / ${o.lat_p95??"—"} / ${o.lat_p99??"—"} ms`:(b.mockLat?`${b.mockLat[0]} / ${b.mockLat[1]} / ${b.mockLat[2]} ms`:`<span class="dim">—</span>`);
   const cost=hd?(((r.manifest||{}).est_cost_usd)??(b.local?"$0.00":"—")):(b.local?"$0.00":(b.mockCost!=null?`~$${b.mockCost.toFixed(2)}`:`<span class="dim">—</span>`));
   const cells=hd?o.n_cells:`<span class="dim">—</span>`;
   return `<tr><td><span class="dot" style="background:${b.color}"></span>${b.label}</td><td class="${hd?"ok":"dim"}">${runStatus(b.key)}</td><td>${cells}</td><td>${hd?pct(o.accuracy):`<span class="dim">—</span>`}</td><td>${hd?(o.f1_pos??"—"):`<span class="dim">—</span>`}</td><td>${lat}</td><td>${typeof cost==="number"?(b.local?"$0.00":`$${cost.toFixed(2)}`):cost}</td></tr>`;}).join("")}</tbody></table>`;
