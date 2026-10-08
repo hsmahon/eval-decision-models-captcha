@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -35,14 +36,14 @@ def ask_cell(b64, account_id, token, retries=4):
         "questions": {
             "stoplight": {
                 "type": "noul",
-                "instructions": f"{H.PROMPT} Answer based only on visible pixels. "
-                f"YES when: {H.CRITERIA['true']}. NO when: {H.CRITERIA['false']}.",
+                "instructions": f"{H.PROMPT} Answer based only on visible pixels.",
+                "criteria": {"true": H.CRITERIA["true"], "false": H.CRITERIA["false"]},
             }
         },
         "images": [{"content_type": "image/png", "base64": b64}],
     }
     last_err = None
-    for attempt in range(retries):
+    for attempt in range(6):
         t0 = time.perf_counter()
         try:
             req = urllib.request.Request(
@@ -51,20 +52,28 @@ def ask_cell(b64, account_id, token, retries=4):
                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                payload = json.loads(resp.read().decode())
+            try:
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    payload = json.loads(resp.read().decode())
+            except urllib.error.HTTPError as e:
+                if e.code == 429:
+                    H._sleep_for_429(e, attempt)
+                    continue
+                raise
             ms = (time.perf_counter() - t0) * 1000.0
             if not payload.get("success", True):
                 raise RuntimeError(str(payload.get("errors", payload))[:200])
             ans = payload["result"]["answers"]["stoplight"]
-            p = float(ans.get("value", ans.get("noul")))
-            conf = ans.get("confidence")
-            conf = float(conf) if conf is not None else (p if p >= 0.5 else 1 - p)
+            p = float(ans.get("noul", ans.get("value")))  # schema: {type, noul}
+            conf = p if p >= 0.5 else 1 - p  # noul carries no separate confidence
+            time.sleep(H.RATE_DELAY)
             return (p >= 0.5), conf, json.dumps(ans)[:120], ms, payload
         except Exception as e:  # noqa: BLE001 - retry on any transient failure
             last_err = e
-            time.sleep(2 ** attempt)
-    raise RuntimeError(f"ask_cell failed after {retries} retries: {last_err}")
+            wait = min(30.0, 2.0 ** attempt)
+            print(f"  transient error ({str(e)[:120]}), waiting {wait:.0f}s", flush=True)
+            time.sleep(wait)
+    raise RuntimeError(f"ask_cell failed after 6 retries: {last_err}")
 
 
 def main():
@@ -89,10 +98,16 @@ def main():
 
     decisions = []
     prompt_tok_total = 0
+    done = H.load_done(args.out)
+    if done:
+        decisions = H.load_prior(args.out)
+        print(f"resuming: {len(decisions)} cells already saved, {len(done)} skipped")
     t_start = time.perf_counter()
     for i, r in enumerate(items):
         positives = set(r["positive_cells"])
         for idx, b64 in enumerate(H.crop_cells(os.path.join(H.DATA, r["image"]), r["rows"], r["cols"])):
+            if (r["id"], idx) in done:
+                continue
             pred, conf, raw, ms, payload = ask_cell(b64, args.account_id, args.api_token)
             try:
                 prompt_tok_total += payload["result"].get("usage", {}).get("prompt_tokens", 0) or 0
@@ -117,6 +132,8 @@ def main():
             )
         if (i + 1) % 10 == 0:
             print(f"  {i + 1}/{len(items)} images, {len(decisions)} cells")
+        with open(args.out + ".partial", "w") as f:  # checkpoint every image
+            json.dump({"decisions": decisions}, f)
     wall_s = time.perf_counter() - t_start
 
     if prompt_tok_total:

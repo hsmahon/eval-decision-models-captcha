@@ -19,7 +19,20 @@ import os
 import statistics
 import sys
 import time
-import urllib.request
+import urllib.error
+
+RATE_DELAY = float(os.environ.get("RATE_DELAY", "2.0"))  # seconds between calls
+
+
+def _sleep_for_429(err, attempt):
+    retry_after = None
+    try:
+        retry_after = err.headers.get("Retry-After")
+    except AttributeError:
+        pass
+    wait = float(retry_after) if retry_after else min(30.0, 5.0 * (2 ** attempt))
+    print(f"  429 rate-limited, waiting {wait:.0f}s (attempt {attempt + 1})", flush=True)
+    time.sleep(wait)
 
 PROMPT = "Is a stoplight visible in this image?"
 PROMPT_VERSION = "prompt-v2-neutral"
@@ -30,7 +43,7 @@ CRITERIA = {
 MODEL = "gpt-6-luna"
 ENDPOINT = "https://api.openai.com/v1/decisions"
 COST_PER_MTOK = 0.10  # $/1M input tokens, decisions endpoint
-TOKEN_PER_CELL_EST = 1200  # refined from usage totals at runtime
+TOKEN_PER_CELL_EST = 400  # measured ~345 input tokens/cell on probe
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
@@ -88,7 +101,7 @@ def ask_cell(b64, api_key, retries=4):
         ],
     }
     last_err = None
-    for attempt in range(retries):
+    for attempt in range(6):
         t0 = time.perf_counter()
         try:
             req = urllib.request.Request(
@@ -100,22 +113,50 @@ def ask_cell(b64, api_key, retries=4):
                 },
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                payload = json.loads(resp.read().decode())
+            try:
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    payload = json.loads(resp.read().decode())
+            except urllib.error.HTTPError as e:
+                if e.code == 429:
+                    _sleep_for_429(e, attempt)
+                    continue
+                raise
             ms = (time.perf_counter() - t0) * 1000.0
             answers = payload.get("answers", payload.get("data", {}).get("answers", []))
             ans = answers[0] if isinstance(answers, list) else answers.get("stoplight", {})
             if isinstance(ans, dict) and ans.get("type") == "refusal":
                 return None, None, "refusal", ms, payload
             p = float(ans.get("probability", ans.get("value")))
+            time.sleep(RATE_DELAY)
             return (p >= 0.5), (p if p >= 0.5 else 1 - p), json.dumps(ans)[:120], ms, payload
         except Exception as e:  # noqa: BLE001 - retry on any transient failure
             last_err = e
-            time.sleep(2 ** attempt)
-    raise RuntimeError(f"ask_cell failed after {retries} retries: {last_err}")
+            wait = min(30.0, 2.0 ** attempt)
+            print(f"  transient error ({str(e)[:120]}), waiting {wait:.0f}s", flush=True)
+            time.sleep(wait)
+    raise RuntimeError(f"ask_cell failed after 6 retries: {last_err}")
 
 
-def wilson(p, n, z=1.96):
+def load_done(out_path):
+    """Resume support: return {(image_id, cell_index)} already saved in out file."""
+    for path in (out_path, out_path + ".partial"):
+        try:
+            with open(path) as f:
+                prior = json.load(f)
+            return {(d["image_id"], d["cell_index"]) for d in prior.get("decisions", [])}
+        except (OSError, ValueError, KeyError):
+            continue
+    return set()
+
+
+def load_prior(out_path):
+    for path in (out_path, out_path + ".partial"):
+        try:
+            with open(path) as f:
+                return json.load(f).get("decisions", [])
+        except (OSError, ValueError, KeyError):
+            continue
+    return []
     if not n:
         return [0.0, 0.0]
     d = 1 + z * z / n
@@ -183,10 +224,16 @@ def main():
         return
 
     decisions, refusals = [], 0
+    done = load_done(args.out)
+    if done:
+        decisions = load_prior(args.out)
+        print(f"resuming: {len(decisions)} cells already saved, {len(done)} skipped")
     t_start = time.perf_counter()
     for i, r in enumerate(items):
         positives = set(r["positive_cells"])
         for idx, b64 in enumerate(crop_cells(os.path.join(DATA, r["image"]), r["rows"], r["cols"])):
+            if (r["id"], idx) in done:
+                continue
             pred, conf, raw, ms, _payload = ask_cell(b64, args.api_key)
             if pred is None:
                 refusals += 1
@@ -210,6 +257,8 @@ def main():
             )
         if (i + 1) % 10 == 0:
             print(f"  {i + 1}/{len(items)} images, {len(decisions)} cells")
+        with open(args.out + ".partial", "w") as f:  # checkpoint every image
+            json.dump({"decisions": decisions}, f)
     wall_s = time.perf_counter() - t_start
 
     total_in_tok = len(decisions) * TOKEN_PER_CELL_EST
