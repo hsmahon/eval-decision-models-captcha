@@ -9,7 +9,7 @@ complexity increases, using CAPTCHA-style grids?
   with explicit true/false `criteria` (whole-or-partial signals count;
   lookalikes excluded). One typed yes/no call per cell crop.
 - Dataset: 150 fixed synthetic grids in `data/images/` (30 each of 3×3, 3×4, 4×4, 4×5, 5×5; 10 easy / 10 medium / 10 hard per size), 320 px/cell, 2,460 cells total. Real COCO 2017 photo crops (see `data/ATTRIBUTION.md`), not scraped CAPTCHAs.
-- Artifacts: eval runners (notebook for local, `scripts/` for hosted) → one
+- Artifacts: eval runners (notebook for local, hosted scripts removed after runs) → one
   `data/results_<backend>.json` per backend → `index.html` (static dashboard,
   never calls any model).
 - Ethics: synthetic benchmark only, not for bypassing real CAPTCHAs.
