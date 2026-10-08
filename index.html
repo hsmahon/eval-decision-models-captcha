@@ -1684,7 +1684,7 @@ async function main(){
 function renderAll(){renderC1();renderCmp();renderLB();}
 function runStatus(k){const r=RS[k];if(!hasData(r))return "not run yet";const m=r.manifest||{};return m.full_run?`full (${m.n_images_run}/${m.n_images_total||150})`:`smoke (${m.n_images_run||0}/${m.n_images_total||150})`;}
 function renderCmp(){
- $("cmp").innerHTML=`<table><thead><tr><th>model</th><th>status</th><th>cells</th><th>accuracy</th><th>F1 pos</th><th>med / p95 ms</th><th>est cost / 2,460 cells</th></tr></thead><tbody>${BACKENDS.map(b=>{
+ $("cmp").innerHTML=`<table><thead><tr><th>model</th><th>status</th><th>cells</th><th>accuracy</th><th>F1 pos</th><th>p50 / p95</th><th>est cost / 2,460 cells</th></tr></thead><tbody>${BACKENDS.map(b=>{
   const r=RS[b.key],o=(r&&r.overall)||{};const hd=hasData(r);
   const lat=hd?`${o.lat_median??"—"} / ${o.lat_p95??"—"} ms`:(b.mockLat?`${b.mockLat[0]} / ${b.mockLat[1]} ms`:`<span class="dim">—</span>`);
   const cost=hd?(((r.manifest||{}).est_cost_usd)??(b.local?"$0.00":"—")):(b.local?"$0.00":(b.mockCost!=null?`~$${b.mockCost.toFixed(2)}`:`<span class="dim">—</span>`));
