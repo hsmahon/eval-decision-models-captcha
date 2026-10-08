@@ -20,8 +20,8 @@ complexity increases, using CAPTCHA-style grids?
 |---|---|---|---|
 | `strands` | `StrandsAgents/strands-decider-2B-hobson-v21` (LoRA on Qwen3.5-2B, frozen Qwen3.5 vision tower) | `eval.ipynb` §§2–4, Colab T4 | $0.00 local |
 | `d1` | `LiquidAI/d1-3B` (native `noul` head via `system_one`, `transformers>=5.14`, bf16 ~7–8 GB) | `eval_d1.ipynb` (Colab T4), same prompt-v2 + criteria | $0.00 local |
-| `clef-flash` | `@cf/cloudflare/clef-flash` 9B (`noul` + native `criteria`, base64 `images[]`) | `scripts/run_clef_flash.py` | $0.09/1M input tok (from `usage`) |
-| `openai` | `gpt-6-luna` via `POST /v1/decisions` (`predicate`, base64 data-URL) | `scripts/run_openai.py` | $0.10/1M input tok (measured ~345 tok/cell) |
+| `clef-flash` | `@cf/cloudflare/clef-flash` 9B (`noul` + native `criteria`, base64 `images[]`) | hosted script (removed; results kept) | $0.09/1M input tok (from `usage`) |
+| `openai` | `gpt-6-luna` via `POST /v1/decisions` (`predicate`, base64 data-URL) | hosted script (removed; results kept) | $0.10/1M input tok (measured ~345 tok/cell) |
 
 Results so far (2,460 cells each): clef-flash 0.9553 (p50 622 ms, $0.27),
 openai 0.9435 (p50 226 ms, $0.10). Local backends pending (Colab).
@@ -47,10 +47,6 @@ openai 0.9435 (p50 226 ms, $0.10). Local backends pending (Colab).
 
 - `eval.ipynb` — strands runner: §0 setup, §1 dataset check, §2 model load + crop/ask helpers, §3 run eval (`LIMIT`, `DRY_RUN_NO_MODEL`), §4 metrics → `results.json`.
 - `eval_d1.ipynb` — d1-3B runner (same structure, writes `data/results_d1.json`).
-- `scripts/run_openai.py` — shared harness (crop, `summarize`, schema, resume via
-  `.partial` checkpoints) + OpenAI Decisions caller. `scripts/run_clef_flash.py`
-  reuses the harness. `LIMIT` / `PROBE=1` env pattern; `RATE_DELAY` pacing;
-  capped backoff with `Retry-After` support.
 - `data/images/` — 150 `.png` grids named by `image_id`.
 - `data/labels.jsonl`, `data/results*.json`, `data/ATTRIBUTION.md`, `data/README.dataset.md`.
 - `index.html` — 3-section leaderboard (see Tech stack).
@@ -61,9 +57,6 @@ openai 0.9435 (p50 226 ms, $0.10). Local backends pending (Colab).
 - Colab (local backends, T4 GPU): see `README.md`. Smoke `LIMIT = 5` before full
   `LIMIT = None`. `eval.ipynb` writes `data/results.json` (the dashboard reads
   strands from that filename — don't rename it).
-- Hosted (any machine): `LIMIT=5 PROBE=1 python3 scripts/run_<backend>.py` to verify
-  API shape → smoke → `LIMIT=None` full run (detached, `python3 -u`, resume-safe).
-  Keys via env only (`OPENAI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`) — never commit.
 - Viewing results: GH Pages (auto-build from `main`), hard-refresh after deploy.
   Dashboard needs no server (embedded fallback covers `file://`).
 
