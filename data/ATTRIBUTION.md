@@ -10,6 +10,6 @@ Grid cells in `images/*.png` are square crops of photographs from **COCO 2017
   evaluation only.
 - COCO annotations (bounding boxes) © COCO Consortium, CC BY 4.0.
 - No images were taken from any CAPTCHA provider.
-- Cell crops were resized to 320 px and re-composed into grids by
-  `scripts/build_photogrids.py` (seed 20261008). Short pools (fire hydrant,
-  stop sign) reuse instances with horizontal-flip / context-margin variants.
+- Cell crops were resized to 320 px and re-composed into fixed grids.
+  Short pools (fire hydrant, stop sign) reuse instances with
+  horizontal-flip / context-margin variants.

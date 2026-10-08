@@ -28,6 +28,11 @@ Why COCO specifically:
 - **Difficulty becomes visual, not decorative.** Easy cells get the largest,
   most prominent instances; hard cells get the smallest/most cluttered ones
   (ranked by box-area ratio). The easy/med/hard split now measures something.
+- **No real CAPTCHAs.** Deliberately not scraped from any CAPTCHA provider:
+  same eval signal (stoplight yes/no over N candidate regions) with zero
+  anti-abuse bypass implications and safe to publish.
+- **Reproducible.** The 150 grids are fixed artifacts (short pools for hydrant
+  and stop sign use flip/context variants of real instances).
 
 Grid spec: 150 images (30 each of 3×3, 3×4, 4×4, 4×5, 5×5), 320 px/cell,
 2,460 cells total. Per-cell label mix: car 388, bicycle 417, bus 327,
