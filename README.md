@@ -17,10 +17,12 @@ How do decision models perform as visual decision complexity increases? I wanted
 
 ## Models (leaderboard)
 
-| backend | model | runs where | cost |
-|---|---|---|---|
-| `clef-flash` | Cloudflare Clef-flash 9B (`@cf/cloudflare/clef-flash`) | Workers AI | $0.09/1M input tok |
-| `openai` | OpenAI Decisions API (GPT-6 Luna, public beta) | hosted API | $0.10/1M input tok |
+| Model | Accuracy | Cost | p50 | p99 |
+|---|---|---|---|---|
+| Cloudflare Clef-flash 9B (`@cf/cloudflare/clef-flash`) | 0.9553 | $0.27 | 622 ms | 1,674 ms |
+| OpenAI Decisions API (GPT-6 Luna, public beta) | 0.9435 | $0.10 | 226 ms | 1,802 ms |
+
+Accuracy over 2,460 cell decisions each; p50/p99 are per-decision-call latency in ms. Cost is the full-run total at $0.09/1M input tok (Clef) and $0.10/1M (OpenAI).
 
 ## Dataset — COCO Photo Crops
 
