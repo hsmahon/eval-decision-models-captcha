@@ -45,7 +45,7 @@ git clone https://github.com/hsmahon/strands-decider-vision-eval
 %cd strands-decider-vision-eval
 !pip install "strands-decider[vision]" pillow
 ```
-1. Open `eval.ipynb` in Colab (File → Upload notebook, or open from the cloned repo).
+1. Open `eval.ipynb` in Colab (File → Upload notebook). Cell 1 auto-clones the repo so `data/` is present — just run cells top to bottom.
 2. Run §0–§1 — confirm `labels.jsonl` loads (150 images) and package versions print.
 3. Set `LIMIT = 5`, Run All (smoke test, no crash).
 4. Set `LIMIT = None`, Run All (~8 min on T4 at ~200 ms/call) → overwrites `data/results.json`.
