@@ -20,6 +20,7 @@ import statistics
 import sys
 import time
 import urllib.error
+import urllib.request
 
 RATE_DELAY = float(os.environ.get("RATE_DELAY", "2.0"))  # seconds between calls
 
@@ -157,6 +158,9 @@ def load_prior(out_path):
         except (OSError, ValueError, KeyError):
             continue
     return []
+
+
+def wilson(p, n, z=1.96):
     if not n:
         return [0.0, 0.0]
     d = 1 + z * z / n
