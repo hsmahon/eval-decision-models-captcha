@@ -13,8 +13,8 @@ How do decision models perform as visual decision complexity increases? I wanted
 |---|---|---|---|
 | `strands` | `StrandsAgents/strands-decider-2B-hobson-v21` — `noul` yes/no + calibrated confidence, LoRA on Qwen3.5-2B, frozen Qwen3.5 vision tower (`transformers>=5.18`) | local GPU | $0.00 |
 | `d1` | Liquid `d1-3B` (open weights, text+vision) | local GPU | $0.00 |
-| `clef-flash` | Cloudflare Clef-flash 9B (`@cf/cloudflare/clef-flash`) | Workers AI | metered |
-| `openai` | OpenAI Decisions API (GPT-6 Luna, public beta) | hosted API | metered |
+| `clef-flash` | Cloudflare Clef-flash 9B (`@cf/cloudflare/clef-flash`) | Workers AI | $0.09/1M input tok |
+| `openai` | OpenAI Decisions API (GPT-6 Luna, public beta) | hosted API | $0.10/1M input tok |
 
 ## Dataset — COCO Photo Crops
 
@@ -59,7 +59,3 @@ pip install "strands-decider[vision]" pillow
 ```
 
 `DRY_RUN_NO_MODEL` in §3 checks cropping/timing without weights.
-
-## What `results.json` records
-
-`manifest` (model, prompt verbatim + prompt_version, criteria, backend, timestamp, package versions, est_cost_usd, n_images_run/150) + `decisions[]` (GT, pred, confidence, latency_ms per cell) + aggregates (accuracy + Wilson 95% CI, positive-class F1, mean/median/p95 latency in ms, confidence buckets, per-image leaderboard). One file per backend: `data/results_<backend>.json`. Recompute metrics without re-running the model.
