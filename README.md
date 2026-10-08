@@ -1,6 +1,6 @@
 # Eval - Decision Models - CAPTCHA
 
-How do decision models perform as visual decision complexity increases?
+How do decision models perform as visual decision complexity increases? I wanted to evaluate decision models on images to see if they could solve an infamous annoyance - CAPTCHAs.
 
 > [!WARNING]
 >
