@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>strands-decider-2B-hobson-v21 — vision decision eval</title>
+<style>
+:root{--bg:#0a0c10;--panel:#12151c;--line:#232a36;--txt:#d7dee9;--dim:#8b94a5;--grn:#3ddc84;--red:#ff5d5d;--amb:#ffb224;--mono:ui-monospace,"JetBrains Mono","IBM Plex Mono",Menlo,Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.55 var(--mono)}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 18px 80px}
+.term{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;white-space:pre;color:var(--grn)}
+h1{font-size:26px;margin:18px 0 4px}.sub{color:var(--dim);margin:0 0 14px}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin:16px 0}
+.sec h2{font-size:15px;margin:0 0 4px;letter-spacing:.04em}.sec h2::before{content:"├── ";color:var(--dim)}
+.rule{border-top:1px dashed var(--line);margin:12px 0}
+.bars{display:grid;gap:8px}.brow{display:grid;grid-template-columns:52px 1fr 150px;gap:10px;align-items:center}
+.track{background:#0d1117;border:1px solid var(--line);border-radius:6px;height:22px;position:relative;overflow:hidden}
+.fill{background:linear-gradient(90deg,#1f8f57,var(--grn));height:100%}
+.fill.pending{background:repeating-linear-gradient(45deg,#161b24,#161b24 6px,#10141b 6px,#10141b 12px)}
+.bval{color:var(--dim);font-size:12.5px;text-align:right}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--dim);cursor:pointer;user-select:none}tr:hover td{background:#161b24}
+.pill{display:inline-block;padding:1px 8px;border:1px solid var(--line);border-radius:20px;font-size:12px}
+.ok{color:var(--grn)}.bad{color:var(--red)}.dim{color:var(--dim)}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+select,button,input{background:#0d1117;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;font-size:13px}
+button{cursor:pointer}button.on{border-color:var(--grn);color:var(--grn)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:800px){.grid2{grid-template-columns:1fr}.brow{grid-template-columns:44px 1fr 110px}}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;padding:18px}
+#mbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:860px;width:100%;max-height:90vh;overflow:auto;padding:16px}
+.ovlwrap{position:relative;display:inline-block;border:1px solid #e8eef7;border-radius:8px;overflow:hidden;max-width:100%}
+.ovlwrap img{display:block;max-width:420px;width:100%}
+.ovl{position:absolute;inset:0;display:grid}
+.cell{border:1px solid rgba(255,255,255,.75);font-size:11px;display:flex;align-items:flex-end;justify-content:flex-start;padding:2px;text-shadow:0 1px 2px #000}
+.cell.ok{background:rgba(61,220,132,.28)}.cell.bad{background:rgba(255,93,93,.32)}.cell.gt{outline:2px dashed var(--amb);outline-offset:-2px}
+.banner{border:1px solid var(--amb);color:var(--amb);border-radius:10px;padding:10px 14px;margin:14px 0}
+.foot{color:var(--dim);font-size:12.5px}
+img.thumb{width:64px;height:64px;object-fit:cover;border:1px solid #e8eef7;border-radius:6px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="term">$ eval-decider --model StrandsAgents/strands-decider-2B-hobson-v21 --benchmark captcha_vision_benchmark_150
+<span id="tline">loading ./data/results.json …</span></div>
+<h1>How does a 2B vision decision model scale with visual complexity?</h1>
+<p class="sub">Synthetic benchmark only (not for bypassing real CAPTCHAs). Per-cell question: <b>“Does this square contain a stoplight?”</b> · 150 images · 2,460 cell decisions · page never calls the model.</p>
+<div id="pending" class="banner" style="display:none">No model results yet — this page is showing the dataset layout. Run <b>eval.ipynb</b> (LIMIT=None) to write <b>data/results.json</b>, then reload.</div>
+
+<div class="sec"><h2>accuracy vs grid size (primary story)</h2><div id="c1" class="bars"></div><div class="rule"></div><div id="t1"></div></div>
+
+<div class="grid2">
+<div class="sec"><h2>difficulty split — more cells, or harder cells?</h2><div id="c2" class="dim">Run the notebook for easy/med/hard split.</div></div>
+<div class="sec"><h2>latency per cell decision (median + p95)</h2><div id="c3" class="dim">Pending.</div><div class="foot">Measured with perf_counter around preprocess + inference. Excludes page render.</div></div>
+</div>
+
+<div class="sec"><h2>confidence vs correctness (bucketed)</h2><div id="c4" class="bars"></div><div class="foot">When the model says 80–100%, is it usually right? Empty buckets show n=0.</div></div>
+
+<div class="sec"><h2>leaderboard — where does it do best / worst?</h2>
+<div class="controls">
+<select id="fgrid"><option value="">all grids</option><option>3x3</option><option>3x4</option><option>4x4</option><option>4x5</option><option>5x5</option></select>
+<select id="fdiff"><option value="">all difficulties</option><option>easy</option><option>medium</option><option>hard</option></select>
+<button id="bworst" class="on">worst first</button>
+<button id="bperfect">perfect only</button>
+<button id="b55">5×5 errors</button>
+</div>
+<div style="overflow-x:auto"><table><thead><tr>
+<th data-k="image_id">image ⇅</th><th>thumb</th><th data-k="grid">grid ⇅</th><th data-k="difficulty">diff ⇅</th><th data-k="cell_acc">cell-acc ⇅</th><th data-k="full_success">full ✓ ⇅</th><th data-k="avg_conf">avg conf ⇅</th><th data-k="total_ms">total ms ⇅</th>
+</tr></thead><tbody id="lb"></tbody></table></div>
+<div class="foot">Click a row for cell overlay. Ground-truth stoplight cells get an amber dashed outline when no predictions exist yet.</div>
+</div>
+
+<div class="sec"><h2>reproducibility</h2><div id="mani" class="dim">…</div>
+<div class="foot">Fixed 150-image artifact · fixed prompt · Wilson 95% CI (cells in one image are correlated, so CIs are optimistic) · F1 is positive-class (stoplight) · per-image full-success is secondary (0.95⁹≈0.63 vs 0.95²⁵≈0.28 by pure math).</div></div>
+</div>
+
+<div id="modal"><div id="mbox"></div></div>
+
+<script>
+let R=null, sortK="cell_acc", sortDir=1, onlyPerfect=false, only55err=false;
+const $=id=>document.getElementById(id);
+const pct=v=>v==null?"—":(v*100).toFixed(1)+"%";
+function bar(label,val,extra){const w=val==null?100:Math.max(2,val*100);
+ return `<div class="brow"><div>${label}</div><div class="track"><div class="fill${val==null?" pending":""}" style="width:${w}%"></div></div><div class="bval">${val==null?"pending":pct(val)}${extra||""}</div></div>`;}
+async function main(){
+ try{R=await (await fetch("./data/results.json")).json();}
+ catch(e){$("tline").textContent="results.json not found — run eval.ipynb";return;}
+ const m=R.manifest||{};
+ $("tline").textContent=`model=${m.model||"?"} · run=${m.n_images_run||0}/150 · ${m.timestamp||"no timestamp"}`;
+ if(!R.decisions||!R.decisions.length||m.n_images_run===0)$("pending").style.display="block";
+ // Chart 1 + table
+ const order=["3x3","3x4","4x4","4x5","5x5"];
+ $("c1").innerHTML=order.map(g=>{const b=(R.by_grid||{})[g]||{};return bar(g,b.accuracy,`<span class="dim"> n=${b.n_cells||b.expected_cells||0}</span>`);}).join("");
+ $("t1").innerHTML=`<table><thead><tr><th>grid</th><th>cells</th><th>accuracy (95% CI)</th><th>F1 pos</th><th>avg conf</th><th>med / p95 ms</th></tr></thead><tbody>${order.map(g=>{const b=(R.by_grid||{})[g]||{};return `<tr><td>${g}</td><td>${b.n_cells||b.expected_cells||"—"}</td><td>${pct(b.accuracy)} <span class="dim">${b.ci95?"["+b.ci95.map(pct).join(", ")+"]":""}</span></td><td>${b.f1_pos??"—"}</td><td>${b.avg_confidence??"—"}</td><td>${b.lat_median??"—"} / ${b.lat_p95??"—"}</td></tr>`;}).join("")}</tbody></table>`;
+ // Chart 3 latency
+ $("c3").innerHTML=order.map(g=>{const b=(R.by_grid||{})[g]||{};const v=b.lat_median;return `<div class="brow"><div>${g}</div><div class="track"><div class="fill${v==null?" pending":""}" style="width:${v==null?100:Math.min(100,v/5)}%"></div></div><div class="bval">${v==null?"pending":v+" ms"}${b.lat_p95!=null?` <span class="dim">p95 ${b.lat_p95}</span>`:""}</div></div>`;}).join("");
+ // Chart 4 confidence
+ const bk=(R.overall||{}).conf_buckets||{};
+ $("c4").innerHTML=[0,20,40,60,80].map(lo=>{const k=`${lo}-${lo+20}`,b=bk[k]||{n:0,acc:null};return bar(k+"%",b.acc,`<span class="dim"> n=${b.n}</span>`);}).join("");
+ // Chart 2 difficulty
+ const gd=R.by_grid_difficulty||{}, keys=Object.keys(gd);
+ if(keys.length){let h="";for(const g of order){h+=`<div class="dim">${g}</div>`;for(const d of ["easy","medium","hard"]){const b=gd[`${g}/${d}`];if(b)h+=bar(d.slice(0,4),b.accuracy,`<span class="dim"> n=${b.n_cells}</span>`);}$("c2").innerHTML=h;}else{$("c2").textContent="Run the notebook for easy/med/hard split.";}
+ // manifest
+ $("mani").innerHTML=`<span class="pill">${m.model||""}</span> <span class="pill">prompt: “${m.prompt||""}”</span> <span class="pill">backend: ${m.backend||"not run"}</span> <span class="pill">${m.timestamp||"no timestamp"}</span>`;
+ renderLB();
+}
+function renderLB(){
+ const fg=$("fgrid").value, fd=$("fdiff").value;
+ let rows=(R.per_image||[]).filter(r=>(!fg||r.grid===fg)&&(!fd||r.difficulty===fd));
+ if(onlyPerfect)rows=rows.filter(r=>r.full_success===true);
+ if(only55err)rows=rows.filter(r=>r.grid==="5x5"&&(r.cell_acc??1)<1);
+ rows=[...rows].sort((a,b)=>{let x=a[sortK],y=b[sortK];if(x==null)return 1;if(y==null)return -1;
+  if(typeof x==="boolean")x=x?1:0;if(typeof y==="boolean")y=y?1:0;
+  if(typeof x==="string")return sortDir*x.localeCompare(y);return sortDir*(x-y);});
+ $("lb").innerHTML=rows.map(r=>`<tr data-id="${r.image_id}" style="cursor:pointer"><td>${r.image_id}</td><td><img class="thumb" loading="lazy" src="./data/images/${r.image_id}.png"></td><td>${r.grid}</td><td>${r.difficulty}</td><td class="${r.cell_acc==null?"dim":r.cell_acc===1?"ok":r.cell_acc<0.8?"bad":""}">${pct(r.cell_acc)}</td><td>${r.full_success==null?'<span class="dim">—</span>':r.full_success?'<span class="ok">✓</span>':'<span class="bad">✗</span>'}</td><td>${r.avg_conf??"—"}</td><td>${r.total_ms??"—"}</td></tr>`).join("")||`<tr><td colspan="8" class="dim">No rows match.</td></tr>`;
+ document.querySelectorAll("#lb tr[data-id]").forEach(tr=>tr.onclick=()=>openImg(tr.dataset.id));
+ document.querySelectorAll("th[data-k]").forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(sortK===k)sortDir*=-1;else{sortK=k;sortDir=k==="image_id"?1:1;}renderLB();});
+}
+function openImg(id){
+ const r=(R.per_image||[]).find(x=>x.image_id===id);if(!r)return;
+ const ds=(R.decisions||[]).filter(d=>d.image_id===id);
+ const pos=new Set(r.positive_cells||[]);
+ let cells="";
+ for(let i=0;i<r.rows*r.cols;i++){
+  const d=ds.find(x=>x.cell_index===i);
+  let cls="",txt="";
+  if(d){const ok=d.prediction===d.ground_truth;cls=ok?"ok":"bad";txt=(ok?"✓ ":"✗ ")+(d.confidence??"");}
+  else{cls=pos.has(i)?"gt":"";txt=pos.has(i)?"▣ GT":"";}
+  cells+=`<div class="cell ${cls}">${txt}</div>`;
+ }
+ const right=ds.length?`<table><thead><tr><th>cell</th><th>GT</th><th>pred</th><th>conf</th><th>ms</th><th></th></tr></thead><tbody>${ds.map(d=>`<tr><td>${d.cell_index}</td><td>${d.ground_truth}</td><td>${d.prediction}</td><td>${d.confidence??"—"}</td><td>${d.latency_ms}</td><td class="${d.prediction===d.ground_truth?"ok":"bad"}">${d.prediction===d.ground_truth?"✓":"✗"}</td></tr>`).join("")}</tbody></table>`:`<p class="dim">No predictions yet — amber ▣ marks ground-truth stoplight cells. Run eval.ipynb.</p><p class="dim">GT positives: [${[...pos].join(", ")}]</p>`;
+ $("mbox").innerHTML=`<div style="display:flex;gap:18px;flex-wrap:wrap"><div><div class="dim">${r.image_id} · ${r.grid} · ${r.difficulty} · acc ${pct(r.cell_acc)}</div><div class="ovlwrap" style="margin-top:8px"><img src="./data/images/${r.image_id}.png"><div class="ovl" style="grid-template-rows:repeat(${r.rows},1fr);grid-template-columns:repeat(${r.cols},1fr)">${cells}</div></div></div><div style="flex:1;min-width:260px">${right}<div style="margin-top:10px"><button onclick="document.getElementById('modal').style.display='none'">close</button></div></div></div>`;
+ $("modal").style.display="flex";
+}
+$("fgrid").onchange=renderLB;$("fdiff").onchange=renderLB;
+$("bworst").onclick=e=>{onlyPerfect=false;only55err=false;sortK="cell_acc";sortDir=1;e.target.classList.add("on");$("bperfect").classList.remove("on");$("b55").classList.remove("on");renderLB();};
+$("bperfect").onclick=e=>{onlyPerfect=!onlyPerfect;only55err=false;e.target.classList.toggle("on");renderLB();};
+$("b55").onclick=e=>{only55err=!only55err;onlyPerfect=false;e.target.classList.toggle("on");renderLB();};
+$("modal").onclick=e=>{if(e.target.id==="modal")$("modal").style.display="none";};
+main();
+</script>
+</body>
+</html>
