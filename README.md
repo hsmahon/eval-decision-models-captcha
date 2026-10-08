@@ -7,11 +7,17 @@ How do decision models perform as visual decision complexity increases? I wanted
 > This README was written by a human (me!), but all code changes, and
 > additional documentation were authored entirely by Muse Spark 1.3 in OpenCode.
 
-## Model (pinned)
+## Models (leaderboard)
 
-- `StrandsAgents/strands-decider-2B-hobson-v21` — decision model (`noul` yes/no + calibrated confidence), LoRA on Qwen3.5-2B.
-- Vision via `pip install "strands-decider[vision]"` (needs `transformers>=5.18`), loaded as `VisionDeciderModel`. No vision training; frozen Qwen3.5 tower.
-- Every eval call is one `noul` per cell crop with the fixed prompt above. See `eval.ipynb` §2.
+| backend | model | runs where | cost |
+|---|---|---|---|
+| `strands` | `StrandsAgents/strands-decider-2B-hobson-v21` — `noul` yes/no + calibrated confidence, LoRA on Qwen3.5-2B, frozen Qwen3.5 vision tower (`transformers>=5.18`) | local GPU | $0.00 |
+| `d1` | Liquid `d1-3B` (open weights, text+vision) | local GPU | $0.00 |
+| `clef-flash` | Cloudflare Clef-flash 9B (`@cf/cloudflare/clef-flash`) | Workers AI | metered |
+| `openai` | OpenAI Decisions API (GPT-6 Luna, public beta) | hosted API | metered |
+| `jev` ★ control | TypeSafe Jev 1.13 (`typesafe/jev`) | hosted API | metered |
+
+Fixed prompt for every cell (prompt-v2-neutral, see `eval.ipynb` §2): `Is a stoplight visible in this image?` with explicit true/false criteria (whole-or-partial signals count; lookalikes excluded). Every eval call is one `noul` per cell crop; latency is measured per call in milliseconds.
 
 ## Dataset — COCO Photo Crops
 
@@ -59,4 +65,4 @@ pip install "strands-decider[vision]" pillow
 
 ## What `results.json` records
 
-`manifest` (model, prompt verbatim, backend, timestamp, package versions, n_images_run/150) + `decisions[]` (GT, pred, confidence, latency_ms per cell) + aggregates (accuracy + Wilson 95% CI, positive-class F1, mean/median/p95 latency, confidence buckets, per-image leaderboard). Recompute metrics without re-running the model.
+`manifest` (model, prompt verbatim + prompt_version, criteria, backend, timestamp, package versions, est_cost_usd, n_images_run/150) + `decisions[]` (GT, pred, confidence, latency_ms per cell) + aggregates (accuracy + Wilson 95% CI, positive-class F1, mean/median/p95 latency in ms, confidence buckets, per-image leaderboard). One file per backend: `data/results_<backend>.json`. Recompute metrics without re-running the model.

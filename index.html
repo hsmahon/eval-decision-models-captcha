@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>strands-decider-2B-hobson-v21 — vision decision eval</title>
+<title>vision decision eval — multi-model leaderboard</title>
 <style>
 :root{--bg:#0a0c10;--panel:#12151c;--line:#232a36;--txt:#d7dee9;--dim:#8b94a5;--grn:#3ddc84;--red:#ff5d5d;--amb:#ffb224;--mono:ui-monospace,"JetBrains Mono","IBM Plex Mono",Menlo,Consolas,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.55 var(--mono)}
@@ -13,10 +13,15 @@ h1{font-size:26px;margin:18px 0 4px}.sub{color:var(--dim);margin:0 0 14px}
 .sec{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin:16px 0}
 .sec h2{font-size:15px;margin:0 0 4px;letter-spacing:.04em}.sec h2::before{content:"├── ";color:var(--dim)}
 .rule{border-top:1px dashed var(--line);margin:12px 0}
-.bars{display:grid;gap:8px}.brow{display:grid;grid-template-columns:52px 1fr 150px;gap:10px;align-items:center}
+.bars{display:grid;gap:8px}.brow{display:grid;grid-template-columns:112px 1fr 150px;gap:10px;align-items:center}
 .track{background:#0d1117;border:1px solid var(--line);border-radius:6px;height:22px;position:relative;overflow:hidden}
 .fill{background:var(--grn);height:100%}
 .fill.pending{background:repeating-linear-gradient(45deg,#161b24,#161b24 6px,#10141b 6px,#10141b 12px)}
+.fill.mean{background:#3B82F6}
+.ghead{color:var(--txt);font-size:13px;margin:10px 0 2px}
+.ghead:first-child{margin-top:0}
+.mlegend{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 2px;font-size:12.5px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:baseline}
 .bval{color:var(--dim);font-size:12.5px;text-align:right}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left}
 th{color:var(--dim);cursor:pointer;user-select:none}tr:hover td{background:#161b24}
@@ -41,17 +46,16 @@ img.thumb{width:64px;height:64px;object-fit:cover;border:1px solid #e8eef7;borde
 <body>
 <div class="wrap">
 <h1>Evaluating Decision Models on Visual Complexity Using CAPTCHAs</h1>
-<p class="sub">Synthetic benchmark only (not for bypassing real CAPTCHAs). Per-cell question: <b>“Does this square contain a stoplight?”</b> · 150 images · 2,460 cell decisions</p>
+<p class="sub">Synthetic benchmark only (not for bypassing real CAPTCHAs). Per-cell question: <b>“Is a stoplight visible in this image?”</b> · 150 images · 2,460 cell decisions</p>
 <div id="pending" class="banner" style="display:none">No model results yet — this page is showing the dataset layout. Run <b>eval.ipynb</b> (LIMIT=None) to write <b>data/results.json</b>, then reload.</div>
 
-<div class="sec"><h2>Accuracy vs Grid Size</h2><div id="c1" class="bars"></div><div class="rule"></div><div id="t1"></div></div>
-
-<div class="grid2">
-<div class="sec"><h2>difficulty split — more cells, or harder cells?</h2><div id="c2" class="dim">Run the notebook for easy/med/hard split.</div></div>
-<div class="sec"><h2>latency per cell decision (median + p95)</h2><div id="c3" class="dim">Pending.</div><div class="foot">Measured with perf_counter around preprocess + inference. Excludes page render.</div></div>
+<div class="sec"><h2>Accuracy vs Grid Size</h2>
+<div class="controls">
+<select id="fmodel"><option value="">all models</option></select>
 </div>
+<div id="c1" class="bars"></div></div>
 
-<div class="sec"><h2>confidence vs correctness (bucketed)</h2><div id="c4" class="bars"></div><div class="foot">When the model says 80–100%, is it usually right? Empty buckets show n=0.</div></div>
+<div class="sec"><h2>model comparison — accuracy · latency · cost</h2><div id="cmp" class="dim">Loading backends…</div></div>
 
 <div class="sec"><h2>leaderboard — where does it do best / worst?</h2>
 <div class="controls">
@@ -60,7 +64,7 @@ img.thumb{width:64px;height:64px;object-fit:cover;border:1px solid #e8eef7;borde
 <button id="bperfect">perfect only</button>
 </div>
 <div style="overflow-x:auto"><table><thead><tr>
-<th data-k="image_id">image ⇅</th><th>thumb</th><th data-k="grid">grid ⇅</th><th data-k="difficulty">diff ⇅</th><th data-k="cell_acc">cell-acc ⇅</th><th data-k="full_success">full ✓ ⇅</th><th data-k="avg_conf">avg conf ⇅</th><th data-k="total_ms">total ms ⇅</th>
+<th data-k="image_id">image ⇅</th><th>thumb</th><th>model</th><th data-k="grid">grid ⇅</th><th data-k="difficulty">diff ⇅</th><th data-k="cell_acc">cell-acc ⇅</th><th data-k="full_success">full ✓ ⇅</th><th data-k="avg_conf">avg conf ⇅</th><th data-k="total_ms">total ms ⇅</th>
 </tr></thead><tbody id="lb"></tbody></table></div>
 <div id="modal"><div id="mbox"></div></div>
 
@@ -1643,48 +1647,82 @@ img.thumb{width:64px;height:64px;object-fit:cover;border:1px solid #e8eef7;borde
 }
 </script>
 <script>
-let R=null, sortK="cell_acc", sortDir=1, onlyPerfect=false;
+const BACKENDS=[
+ {key:"strands",label:"strands-decider-2B",short:"strands",color:"var(--grn)",local:true,mockLat:null,mockCost:null},
+ {key:"d1",label:"Liquid d1-3B",short:"d1",color:"#5ac8fa",local:true,mockLat:[16,31],mockCost:0},
+ {key:"clef-flash",label:"Clef-flash 9B",short:"clef-f",color:"#F6821F",local:false,mockLat:[120,210],mockCost:1.2},
+ {key:"openai",label:"OpenAI Decisions",short:"openai",color:"#FFFFFF",local:false,mockLat:[180,320],mockCost:3.5},
+ {key:"jev",label:"Jev 1.13 ★ control",short:"jev ★",color:"#9AA4B2",local:false,mockLat:[140,260],mockCost:0.6},
+];
+const ORDER=["3x3","3x4","4x4","4x5","5x5"], DIFFS=["easy","medium","hard"];
+let RS={}, R=null, sortK="cell_acc", sortDir=1, onlyPerfect=false;
 const $=id=>document.getElementById(id);
+const lbl=k=>(BACKENDS.find(b=>b.key===k)||{label:k,short:k,color:"var(--grn)"});
+const hasData=r=>!!(r&&r.decisions&&r.decisions.length&&((r.manifest||{}).n_images_run>0));
 const pct=v=>v==null?"—":(v*100).toFixed(1)+"%";
-function bar(label,val,extra){const w=val==null?100:Math.max(2,val*100);
- return `<div class="brow"><div>${label}</div><div class="track"><div class="fill${val==null?" pending":""}" style="width:${w}%"></div></div><div class="bval">${val==null?"pending":pct(val)}${extra||""}</div></div>`;}
+function bar(label,val,extra,cls,style){const w=val==null?100:Math.max(2,val*100);
+ const st=`width:${w}%;${(val!=null&&style)?style:""}`;
+ return `<div class="brow"><div>${label}</div><div class="track"><div class="fill${val==null?" pending":""}${cls?" "+cls:""}" style="${st}"></div></div><div class="bval">${val==null?"pending":pct(val)}${extra||""}</div></div>`;}
+function gridObj(r,g){return (r&&r.by_grid&&r.by_grid[g])||{};}
+function gridAcc(r,g){const b=gridObj(r,g);return (b.n_cells>0)?b.accuracy:null;}
+function diffAcc(r,g,d){const b=(r&&r.by_grid_difficulty&&r.by_grid_difficulty[`${g}/${d}`])||{};return (b.n_cells>0)?b.accuracy:null;}
+async function loadOne(key){
+ if(key==="strands"){
+  try{const r=await fetch("./data/results.json");if(r.ok)return await r.json();}catch(e){}
+  try{return JSON.parse(document.getElementById("embedded-results").textContent);}catch(e2){return null;}
+ }
+ try{const r=await fetch(`./data/results_${key}.json`);if(!r.ok)return null;return await r.json();}catch(e){return null;}
+}
 async function main(){
- try{R=await (await fetch("./data/results.json")).json();}
- catch(e){
-    try{
-      R=JSON.parse(document.getElementById("embedded-results").textContent);
-    }catch(e2){return;}
+ for(const b of BACKENDS){RS[b.key]=await loadOne(b.key);}
+ R=RS.strands;
+ {const s=$("fmodel");BACKENDS.forEach(b=>{const o=document.createElement("option");o.value=b.key;o.textContent=b.label+(hasData(RS[b.key])?"":" — not run yet");s.appendChild(o);});}
+ if(!hasData(R))$("pending").style.display="block";
+ renderAll();
+}
+function renderAll(){renderC1();renderCmp();renderLB();}
+function runStatus(k){const r=RS[k];if(!hasData(r))return "not run yet";const m=r.manifest||{};return m.full_run?`full (${m.n_images_run}/${m.n_images_total||150})`:`smoke (${m.n_images_run||0}/${m.n_images_total||150})`;}
+function renderCmp(){
+ $("cmp").innerHTML=`<table><thead><tr><th>model</th><th>status</th><th>cells</th><th>accuracy</th><th>F1 pos</th><th>med / p95 ms</th><th>est cost / 2,460 cells</th></tr></thead><tbody>${BACKENDS.map(b=>{
+  const r=RS[b.key],o=(r&&r.overall)||{};const hd=hasData(r);
+  const lat=hd?`${o.lat_median??"—"} / ${o.lat_p95??"—"} ms`:(b.mockLat?`${b.mockLat[0]} / ${b.mockLat[1]} ms`:`<span class="dim">—</span>`);
+  const cost=hd?(((r.manifest||{}).est_cost_usd)??(b.local?"$0.00":"—")):(b.local?"$0.00":(b.mockCost!=null?`~$${b.mockCost.toFixed(2)}`:`<span class="dim">—</span>`));
+  const cells=hd?o.n_cells:`<span class="dim">—</span>`;
+  return `<tr><td><span class="dot" style="background:${b.color}"></span>${b.label}</td><td class="${hd?"ok":"dim"}">${runStatus(b.key)}</td><td>${cells}</td><td>${hd?pct(o.accuracy):`<span class="dim">—</span>`}</td><td>${hd?(o.f1_pos??"—"):`<span class="dim">—</span>`}</td><td>${lat}</td><td>${typeof cost==="number"?(b.local?"$0.00":`$${cost.toFixed(2)}`):cost}</td></tr>`;}).join("")}</tbody></table>`;
+}
+function renderC1(){
+ const fm=$("fmodel").value;
+ let h="";
+ for(const g of ORDER){
+  if(!fm){
+   const accs=BACKENDS.map(b=>gridAcc(RS[b.key],g));
+   const have=accs.filter(v=>v!=null);
+   const mean=have.length?have.reduce((a,b)=>a+b,0)/have.length:null;
+   h+=bar(g,mean,"","mean");
+  }else{
+   const B=lbl(fm), acc=gridAcc(RS[fm],g);
+   h+=bar(g,acc,`<span class="dim"> ${B.short}${hasData(RS[fm])?(" n="+(gridObj(RS[fm],g).n_cells||"?")):" — not run yet"}</span>`,"",`background:${B.color}`);
   }
-  const m=R.manifest||{};
-  if(!R.decisions||!R.decisions.length||m.n_images_run===0)$("pending").style.display="block";
- // Chart 1 + table
- const order=["3x3","3x4","4x4","4x5","5x5"];
-  $("c1").innerHTML=order.map(g=>{const b=(R.by_grid||{})[g]||{};const acc=(b.n_cells>0?b.accuracy:null);return bar(g,acc,`<span class="dim"> n=${b.n_cells||b.expected_cells||0}</span>`);}).join("");
-  $("t1").innerHTML=`<table><thead><tr><th>grid</th><th>cells</th><th>accuracy (95% CI)</th><th>F1 pos</th><th>avg conf</th><th>med / p95 ms</th></tr></thead><tbody>${order.map(g=>{const b=(R.by_grid||{})[g]||{};const acc=(b.n_cells>0?b.accuracy:null);return `<tr><td>${g}</td><td>${b.n_cells||b.expected_cells||"—"}</td><td>${pct(acc)} <span class="dim">${b.n_cells>0&&b.ci95?"["+b.ci95.map(pct).join(", ")+"]":""}</span></td><td>${b.n_cells>0?(b.f1_pos??"—"):"—"}</td><td>${b.avg_confidence??"—"}</td><td>${b.lat_median??"—"} / ${b.lat_p95??"—"}</td></tr>`;}).join("")}</tbody></table>`;
- // Chart 3 latency
- $("c3").innerHTML=order.map(g=>{const b=(R.by_grid||{})[g]||{};const v=b.lat_median;return `<div class="brow"><div>${g}</div><div class="track"><div class="fill${v==null?" pending":""}" style="width:${v==null?100:Math.min(100,v/5)}%"></div></div><div class="bval">${v==null?"pending":v+" ms"}${b.lat_p95!=null?` <span class="dim">p95 ${b.lat_p95}</span>`:""}</div></div>`;}).join("");
- // Chart 4 confidence
- const bk=(R.overall||{}).conf_buckets||{};
- $("c4").innerHTML=[0,20,40,60,80].map(lo=>{const k=`${lo}-${lo+20}`,b=bk[k]||{n:0,acc:null};return bar(k+"%",b.acc,`<span class="dim"> n=${b.n}</span>`);}).join("");
- // Chart 2 difficulty
- const gd=R.by_grid_difficulty||{}, keys=Object.keys(gd);
-  if(keys.length){let h="";for(const g of order){h+=`<div class="dim">${g}</div>`;for(const d of ["easy","medium","hard"]){const b=gd[`${g}/${d}`];if(b)h+=bar(d.slice(0,4),(b.n_cells>0?b.accuracy:null),`<span class="dim"> n=${b.n_cells}</span>`);}$("c2").innerHTML=h;}}else{$("c2").textContent="Run the notebook for easy/med/hard split.";}
-  renderLB();
+ }
+ $("c1").innerHTML=h;
 }
 function renderLB(){
- const fg=$("fgrid").value, fd=$("fdiff").value;
- let rows=(R.per_image||[]).filter(r=>(!fg||r.grid===fg)&&(!fd||r.difficulty===fd));
+ const fg=$("fgrid").value, fd=$("fdiff").value, fm=$("fmodel").value;
+ if(fm&&!hasData(RS[fm])){$("lb").innerHTML=`<tr><td colspan="9" class="dim">${lbl(fm).label} — not run yet.</td></tr>`;return;}
+ const RR=fm?RS[fm]:R, mlabel=fm?lbl(fm).short:"strands";
+ let rows=((RR&&RR.per_image)||[]).filter(r=>(!fg||r.grid===fg)&&(!fd||r.difficulty===fd));
   if(onlyPerfect)rows=rows.filter(r=>r.full_success===true);
  rows=[...rows].sort((a,b)=>{let x=a[sortK],y=b[sortK];if(x==null)return 1;if(y==null)return -1;
   if(typeof x==="boolean")x=x?1:0;if(typeof y==="boolean")y=y?1:0;
   if(typeof x==="string")return sortDir*x.localeCompare(y);return sortDir*(x-y);});
- $("lb").innerHTML=rows.map(r=>`<tr data-id="${r.image_id}" style="cursor:pointer"><td>${r.image_id}</td><td><img class="thumb" loading="lazy" src="./data/images/${r.image_id}.png"></td><td>${r.grid}</td><td>${r.difficulty}</td><td class="${r.cell_acc==null?"dim":r.cell_acc===1?"ok":r.cell_acc<0.8?"bad":""}">${pct(r.cell_acc)}</td><td>${r.full_success==null?'<span class="dim">—</span>':r.full_success?'<span class="ok">✓</span>':'<span class="bad">✗</span>'}</td><td>${r.avg_conf??"—"}</td><td>${r.total_ms??"—"}</td></tr>`).join("")||`<tr><td colspan="8" class="dim">No rows match.</td></tr>`;
+ $("lb").innerHTML=rows.map(r=>`<tr data-id="${r.image_id}" style="cursor:pointer"><td>${r.image_id}</td><td><img class="thumb" loading="lazy" src="./data/images/${r.image_id}.png"></td><td class="dim">${mlabel}</td><td>${r.grid}</td><td>${r.difficulty}</td><td class="${r.cell_acc==null?"dim":r.cell_acc===1?"ok":r.cell_acc<0.8?"bad":""}">${pct(r.cell_acc)}</td><td>${r.full_success==null?'<span class="dim">—</span>':r.full_success?'<span class="ok">✓</span>':'<span class="bad">✗</span>'}</td><td>${r.avg_conf??"—"}</td><td>${r.total_ms??"—"}</td></tr>`).join("")||`<tr><td colspan="9" class="dim">No rows match.</td></tr>`;
  document.querySelectorAll("#lb tr[data-id]").forEach(tr=>tr.onclick=()=>openImg(tr.dataset.id));
  document.querySelectorAll("th[data-k]").forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(sortK===k)sortDir*=-1;else{sortK=k;sortDir=k==="image_id"?1:1;}renderLB();});
 }
 function openImg(id){
- const r=(R.per_image||[]).find(x=>x.image_id===id);if(!r)return;
- const ds=(R.decisions||[]).filter(d=>d.image_id===id);
+ const fm=$("fmodel").value, RR=fm?RS[fm]:R;
+ const r=((RR&&RR.per_image)||[]).find(x=>x.image_id===id);if(!r)return;
+ const ds=((RR&&RR.decisions)||[]).filter(d=>d.image_id===id);
  const pos=new Set(r.positive_cells||[]);
  let cells="";
  for(let i=0;i<r.rows*r.cols;i++){
@@ -1699,6 +1737,7 @@ function openImg(id){
  $("modal").style.display="flex";
 }
 $("fgrid").onchange=renderLB;$("fdiff").onchange=renderLB;
+$("fmodel").onchange=()=>renderAll();
 $("bperfect").onclick=e=>{onlyPerfect=!onlyPerfect;e.target.classList.toggle("on");renderLB();};
 $("modal").onclick=e=>{if(e.target.id==="modal")$("modal").style.display="none";};
 main();
