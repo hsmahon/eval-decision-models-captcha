@@ -33,13 +33,21 @@ Grid spec: 150 images (30 each of 3×3, 3×4, 4×4, 4×5, 5×5).
 
 ## Reproducing the Eval
 
-Run on a Colab GPU or any Linux/Mac with a GPU:
+Run on a Colab GPU or any Linux/Mac with a GPU. Colab's most available free
+GPU is the **T4** — select it via `Runtime → Change runtime type → T4 GPU`.
 
-Colab (GPU runtime → L4/T4):
-1. Upload this repo (or `git clone <url>`).
-2. Open `eval.ipynb` → set `LIMIT = 5`, run all (smoke test, no crash).
-3. Set `LIMIT = None`, run all (~8 min on GPU at ~200 ms/call) → overwrites `data/results.json`.
-4. Open `index.html` via any static server or GH Pages.
+Colab (T4 GPU runtime):
+```bash
+git clone https://github.com/hsmahon/strands-decider-vision-eval
+%cd strands-decider-vision-eval
+!pip install "strands-decider[vision]" pillow
+```
+1. Open `eval.ipynb` in Colab (File → Upload notebook, or open from the cloned repo).
+2. Run §0–§1 — confirm `labels.jsonl` loads (150 images) and package versions print.
+3. Set `LIMIT = 5`, Run All (smoke test, no crash).
+4. Set `LIMIT = None`, Run All (~8 min on T4 at ~200 ms/call) → overwrites `data/results.json`.
+5. Download `data/results.json` when done (Files pane → download, or `from google.colab import files; files.download('data/results.json')`).
+6. To view `index.html`: download the repo back locally and serve the root statically (`python3 -m http.server`), or push to GH Pages — Colab preview alone won't resolve `./data/results.json`.
 
 Local:
 ```bash
