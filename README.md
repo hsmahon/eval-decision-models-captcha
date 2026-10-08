@@ -4,12 +4,12 @@ How do decision models perform as visual decision complexity increases? I wanted
 
 > [!WARNING]
 >
-> This README was written by a human, but all code changes, and
+> This README was written by a human (me!), but all code changes, and
 > additional documentation were authored entirely by Muse Spark 1.3 in OpenCode.
 
 ## Model (pinned)
 
-- `StrandsAgents/strands-decider-2B-hobson-v21` — typed decision model (`noul` yes/no + calibrated confidence), LoRA on Qwen3.5-2B.
+- `StrandsAgents/strands-decider-2B-hobson-v21` — decision model (`noul` yes/no + calibrated confidence), LoRA on Qwen3.5-2B.
 - Vision via `pip install "strands-decider[vision]"` (needs `transformers>=5.18`), loaded as `VisionDeciderModel`. No vision training; frozen Qwen3.5 tower.
 - Every eval call is one `noul` per cell crop with the fixed prompt above. See `eval.ipynb` §2.
 
@@ -28,16 +28,8 @@ Why COCO specifically:
 - **Difficulty becomes visual, not decorative.** Easy cells get the largest,
   most prominent instances; hard cells get the smallest/most cluttered ones
   (ranked by box-area ratio). The easy/med/hard split now measures something.
-- **No real CAPTCHAs.** Deliberately not scraped from any CAPTCHA provider:
-  same eval signal (stoplight yes/no over N candidate regions) with zero
-  anti-abuse bypass implications and safe to publish.
-- **Reproducible.** The 150 grids are fixed artifacts (short pools for hydrant
-  and stop sign use flip/context variants of real instances).
 
-Grid spec: 150 images (30 each of 3×3, 3×4, 4×4, 4×5, 5×5), 320 px/cell,
-2,460 cells total. Per-cell label mix: car 388, bicycle 417, bus 327,
-stoplight 277, hydrant 347, sign 314, empty 390 (background crops from
-street-scene images only).
+Grid spec: 150 images (30 each of 3×3, 3×4, 4×4, 4×5, 5×5).
 
 ## Reproducing the Eval
 
