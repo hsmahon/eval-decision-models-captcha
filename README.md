@@ -41,9 +41,6 @@ Why COCO specifically:
 Grid spec: 150 images (30 each of 3×3, 3×4, 4×4, 4×5, 5×5).
 
 ## Reproducing the Eval
-
-Both backends are plain HTTPS calls — no GPU needed. Get an API key for each:
-
 - **OpenAI**: create a key at `platform.openai.com` (needs billing credit), export `OPENAI_API_KEY`. Calls go to `POST https://api.openai.com/v1/decisions` with `model: gpt-6-luna` and one `predicate` question per cell crop (see the [Decisions guide](https://developers.openai.com/api/docs/guides/decisions)).
 - **Cloudflare**: from your Cloudflare dashboard, note your account ID and create an API token with the Workers AI permission; export `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. Calls go to `POST https://api.cloudflare.com/client/v4/accounts/{id}/ai/run/@cf/cloudflare/clef-flash` with a `noul` question plus native `criteria` (see [clef-flash docs](https://developers.cloudflare.com/workers-ai/models/clef-flash/)).
 
