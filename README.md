@@ -21,6 +21,7 @@ How do decision models perform as visual decision complexity increases? I wanted
 |---|---|---|---|---|
 | Cloudflare Clef-flash 9B (`@cf/cloudflare/clef-flash`) | 0.9553 | $0.27 | 622 ms | 1,674 ms |
 | OpenAI Decisions API (GPT-6 Luna, public beta) | 0.9435 | $0.10 | 226 ms | 1,802 ms |
+| Cloudflare Clef-omni 30B-A3B (`@cf/cloudflare/clef-omni`) | smoke (2/150 images) | — | — | — |
 
 ## Dataset — COCO Photo Crops
 

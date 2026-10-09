@@ -20,6 +20,7 @@ complexity increases, using CAPTCHA-style grids?
 |---|---|---|
 | `clef-flash` | `@cf/cloudflare/clef-flash` 9B (`noul` + native `criteria`, base64 `images[]`) | $0.09/1M input tok (from `usage`) |
 | `openai` | `gpt-6-luna` via `POST /v1/decisions` (`predicate`, base64 data-URL) | $0.10/1M input tok (measured ~345 tok/cell) |
+| `clef-omni` | `@cf/cloudflare/clef-omni` 30B-A3B (`noul` + native `criteria`, base64 `images[]`; smoke 2/150 — full run split across free-tier quota resets) | $0.15/1M input tok (from `usage`) |
 
 Results (2,460 cells each): clef-flash 0.9553 (p50 622 ms, $0.27),
 openai 0.9435 (p50 226 ms, $0.10).

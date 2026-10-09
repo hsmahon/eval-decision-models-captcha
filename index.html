@@ -72,7 +72,8 @@ img.thumb{width:64px;height:64px;object-fit:cover;border:1px solid #e8eef7;borde
 <script>
 const BACKENDS=[
  {key:"clef-flash",label:"Clef-flash 9B",short:"clef-f",color:"#F6821F",local:false,mockLat:[120,210,340],mockCost:1.2},
- {key:"openai",label:"OpenAI Decisions",short:"openai",color:"#FFFFFF",local:false,mockLat:[180,320,520],mockCost:3.5},
+  {key:"openai",label:"OpenAI Decisions",short:"openai",color:"#FFFFFF",local:false,mockLat:[180,320,520],mockCost:3.5},
+  {key:"clef-omni",label:"Clef-omni 30B-A3B",short:"clef-o",color:"#9D7BEA",local:false},
 ];
 const ORDER=["3x3","3x4","4x4","4x5","5x5"], DIFFS=["easy","medium","hard"];
 let RS={}, R=null, sortK="cell_acc", sortDir=1, onlyPerfect=false, lbPage=0;
