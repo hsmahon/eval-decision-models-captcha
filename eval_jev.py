@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Run the fixed cell-level benchmark against TypeSafe Jev 1.14.0."""
+"""Run the fixed cell-level benchmark against Jev 1.14 through OpenRouter."""
 
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import math
 import os
@@ -25,8 +26,8 @@ LABELS_PATH = ROOT / "data/labels.jsonl"
 IMAGES_DIR = ROOT / "data/images"
 RESULT_PATH = ROOT / "data/results_jev.json"
 PROGRESS_PATH = ROOT / "data/.jev_progress.json"
-MODEL = "jev-1.14.0"
-API_URL = "https://api.typesafe.ai/v1/systemone"
+MODEL = "typesafe/jev-1.14"
+API_URL = "https://openrouter.ai/api/alpha/decisions"
 PROMPT = "Is a stoplight visible in this image?"
 CRITERIA = {
     "true": "A traffic stoplight is visible, whole or partial — including cropped edges, night shots, or small/distant signals",
@@ -34,6 +35,9 @@ CRITERIA = {
 }
 PRICE_PER_MILLION_INPUT_TOKENS = 0.042
 BENCHMARK = "captcha_vision_benchmark_150 v1"
+CELL_SIZE = 320
+CELL_PITCH = 328
+GRID_PADDING = 8
 
 
 def percentile(values: list[float], p: float) -> float | None:
@@ -144,27 +148,24 @@ def load_labels() -> list[dict]:
     return labels
 
 
-def multipart_request(label: dict, cell_index: int) -> tuple[bytes, str]:
+def decision_request(label: dict, cell_index: int) -> bytes:
     image_path = IMAGES_DIR / f'{label["id"]}.png'
     with Image.open(image_path) as image:
         width, height = image.size
-        left = round(cell_index % label["cols"] * width / label["cols"])
-        right = round((cell_index % label["cols"] + 1) * width / label["cols"])
-        top = round(cell_index // label["cols"] * height / label["rows"])
-        bottom = round((cell_index // label["cols"] + 1) * height / label["rows"])
+        left = GRID_PADDING + (cell_index % label["cols"]) * CELL_PITCH
+        right = left + CELL_SIZE
+        top = GRID_PADDING + (cell_index // label["cols"]) * CELL_PITCH
+        bottom = top + CELL_SIZE
         crop = image.crop((left, top, right, bottom))
-        if crop.size != (320, 320):
-            raise RuntimeError(f'{label["id"]} cell {cell_index} is {crop.size}, expected 320x320')
+        if crop.size != (CELL_SIZE, CELL_SIZE):
+            raise RuntimeError(f'{label["id"]} cell {cell_index} is {crop.size}, expected {CELL_SIZE}x{CELL_SIZE}')
         from io import BytesIO
         encoded = BytesIO()
         crop.save(encoded, format="PNG")
-        image_bytes = encoded.getvalue()
-
-    reference = f"cell-image-{uuid.uuid4().hex}"
+        image_data = base64.b64encode(encoded.getvalue()).decode("ascii")
     payload = {
         "model": MODEL,
-        "state": {"cell_image": reference},
-        "assets": {reference: {"type": "image", "part": "cell_crop"}},
+        "state": [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_data}"}}],
         "questions": {
             "stoplight": {
                 "type": "noul",
@@ -173,31 +174,16 @@ def multipart_request(label: dict, cell_index: int) -> tuple[bytes, str]:
             }
         },
     }
-    boundary = f"jev-{uuid.uuid4().hex}"
-    chunks = [
-        f"--{boundary}\r\n".encode(),
-        b'Content-Disposition: form-data; name="request"\r\n',
-        b"Content-Type: application/json\r\n\r\n",
-        json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode(),
-        b"\r\n",
-        f"--{boundary}\r\n".encode(),
-        b'Content-Disposition: form-data; name="cell_crop"; filename="cell.png"\r\n',
-        b"Content-Type: image/png\r\n\r\n",
-        image_bytes,
-        b"\r\n",
-        f"--{boundary}--\r\n".encode(),
-    ]
-    body = b"".join(chunks)
-    return body, boundary
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
 
 
 def request_decision(label: dict, cell_index: int, token: str) -> tuple[dict, int]:
-    body, boundary = multipart_request(label, cell_index)
+    body = decision_request(label, cell_index)
     headers = {
         "Authorization": f"Bearer {token}",
-        "Content-Type": f"multipart/form-data; boundary={boundary}",
-        "TypeSafe-Danger-Zone-Images": "true",
-        "User-Agent": "eval-decision-models-captcha/jev-1.14.0",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://hsmahon.github.io/eval-decision-models-captcha/",
+        "X-OpenRouter-Title": "Eval Decision Models CAPTCHA",
     }
     started = time.perf_counter()
     for attempt in range(6):
@@ -208,28 +194,33 @@ def request_decision(label: dict, cell_index: int, token: str) -> tuple[dict, in
             break
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")
-            if error.code not in (429, 529) or attempt == 5:
-                raise RuntimeError(f"TypeSafe API HTTP {error.code}: {detail[:1000]}") from error
+            if error.code not in (408, 429, 499, 500, 502, 503, 504, 520, 522, 529) or attempt == 5:
+                raise RuntimeError(f"OpenRouter API HTTP {error.code}: {detail[:1000]}") from error
             retry_after = error.headers.get("Retry-After", "")
             try:
                 delay = min(60.0, max(1.0, float(retry_after)))
             except ValueError:
                 delay = min(30.0, 2.0 ** attempt)
             time.sleep(delay)
-        except urllib.error.URLError as error:
+        except (urllib.error.URLError, TimeoutError) as error:
             if attempt == 5:
-                raise RuntimeError(f"TypeSafe API connection failed: {error}") from error
+                raise RuntimeError(f"OpenRouter API request failed after retries: {error}") from error
             time.sleep(min(30.0, 2.0 ** attempt))
     elapsed_ms = (time.perf_counter() - started) * 1000
     response = json.loads(raw)
     actual_model = response.get("model")
-    if actual_model != MODEL:
+    if actual_model and actual_model != MODEL and not actual_model.startswith(f"{MODEL}-"):
         raise RuntimeError(f"Requested {MODEL}, but API answered with {actual_model!r}")
     answer = response.get("answers", {}).get("stoplight", {})
     if answer.get("type") != "noul" or not isinstance(answer.get("noul"), (int, float)):
         raise RuntimeError(f"Missing numeric Noul answer: {raw[:1000]}")
     probability = min(1.0, max(0.0, float(answer["noul"])))
     prediction = probability >= 0.5
+    usage = response.get("usage", {})
+    used_tokens = int(usage.get("input_tokens", 0))
+    cost = usage.get("cost", usage.get("cost_usd"))
+    if cost is None:
+        cost = used_tokens * PRICE_PER_MILLION_INPUT_TOKENS / 1_000_000
     return {
         "image_id": label["id"],
         "grid": label["grid"],
@@ -242,10 +233,12 @@ def request_decision(label: dict, cell_index: int, token: str) -> tuple[dict, in
         "confidence": round(probability if prediction else 1 - probability, 4),
         "latency_ms": round(elapsed_ms, 1),
         "model": MODEL,
+        "served_model": actual_model or MODEL,
         "prompt": PROMPT,
         "raw": json.dumps(answer, separators=(",", ":")),
-        "input_tokens": int(response.get("usage", {}).get("input_tokens", 0)),
-    }, int(response.get("usage", {}).get("input_tokens", 0))
+        "input_tokens": used_tokens,
+        "cost_usd": float(cost),
+    }, used_tokens
 
 
 def main() -> int:
@@ -253,9 +246,9 @@ def main() -> int:
     parser.add_argument("--limit-images", type=int, help="Run only the first N labeled images (for an API smoke run)")
     parser.add_argument("--fresh", action="store_true", help="Discard a previous partial run and start over")
     args = parser.parse_args()
-    token = os.environ.get("TYPESAFE_API_KEY")
+    token = os.environ.get("OPENROUTER_API_KEY")
     if not token:
-        print("Set TYPESAFE_API_KEY before running this evaluation.", file=sys.stderr)
+        print("Set OPENROUTER_API_KEY before running this evaluation.", file=sys.stderr)
         return 2
     labels = load_labels()
     if args.limit_images is not None:
@@ -272,10 +265,12 @@ def main() -> int:
             raise RuntimeError("Progress file belongs to a different model or image selection; remove it or pass --fresh")
         decisions = progress["decisions"]
         input_tokens = progress["input_tokens"]
+        cost_usd = progress.get("cost_usd", input_tokens * PRICE_PER_MILLION_INPUT_TOKENS / 1_000_000)
         elapsed_before_resume = progress.get("elapsed_s", 0.0)
     else:
         decisions = []
         input_tokens = 0
+        cost_usd = 0.0
         elapsed_before_resume = 0.0
 
     completed = {(d["image_id"], d["cell_index"]) for d in decisions}
@@ -288,11 +283,13 @@ def main() -> int:
             decision, used_tokens = request_decision(label, cell_index, token)
             decisions.append(decision)
             input_tokens += used_tokens
+            cost_usd += decision["cost_usd"]
             write_json(PROGRESS_PATH, {
                 "model": MODEL,
                 "image_ids": [x["id"] for x in labels],
                 "decisions": decisions,
                 "input_tokens": input_tokens,
+                "cost_usd": cost_usd,
                 "elapsed_s": elapsed_before_resume + time.monotonic() - started,
             })
             print(f"{len(decisions)}/{total}: {label['id']} cell {cell_index} · {decision['latency_ms']:.0f} ms")
@@ -304,17 +301,18 @@ def main() -> int:
         "schema_version": 1,
         "manifest": {
             "model": MODEL,
+            "served_models": sorted({d.get("served_model", MODEL) for d in decisions}),
             "prompt": PROMPT,
             "prompt_version": "prompt-v2-neutral",
             "criteria": CRITERIA,
-            "est_cost_usd": round(input_tokens * PRICE_PER_MILLION_INPUT_TOKENS / 1_000_000, 6),
+            "est_cost_usd": round(cost_usd, 6),
             "input_tokens_total": input_tokens,
             "temperature": "n/a (decision head)",
             "benchmark": BENCHMARK,
             "n_images_run": len({d["image_id"] for d in decisions}),
             "n_images_total": 150,
             "full_run": full_run,
-            "backend": "typesafe-jev",
+            "backend": "openrouter-typesafe-jev",
             "refusals": 0,
             "wall_s": round(elapsed_before_resume + time.monotonic() - started, 1),
             "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
