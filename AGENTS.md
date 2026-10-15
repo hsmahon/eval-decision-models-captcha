@@ -21,15 +21,18 @@ complexity increases, using CAPTCHA-style grids?
 | `clef-flash` | `@cf/cloudflare/clef-flash` 9B (`noul` + native `criteria`, base64 `images[]`) | $0.09/1M input tok (from `usage`) |
 | `openai` | `gpt-6-luna` via `POST /v1/decisions` (`predicate`, base64 data-URL) | $0.10/1M input tok (measured ~345 tok/cell) |
 | `clef-omni` | `@cf/cloudflare/clef-omni` 30B-A3B (`noul` + native `criteria`, base64 `images[]`) | $0.15/1M input tok (from `usage`) |
+| `jev` | TypeSafe `jev-1.14.0` via `POST /v1/systemone` (`noul`, multipart image asset; `TypeSafe-Danger-Zone-Images: true`) | $0.042/1M input tok (from `usage`; image input is experimental) |
 
 Results (2,460 cells each): clef-flash 0.9553 (p50 622 ms, $0.27),
 openai 0.9435 (p50 226 ms, $0.10), clef-omni 0.9585 (p50 391 ms, $0.11).
+Jev 1.14.0 image-input evaluation is configured but has not yet been run.
 
 ## Tech stack
 
 - Model APIs: plain HTTPS calls — Clef-flash via Workers AI REST (`images[]` + `noul`
   with native `criteria`), OpenAI via `POST /v1/decisions` (`predicate`, base64 data-URL).
-  Cell crops are inline base64 PNGs; metrics are stdlib-only (`math`, `statistics`, `json`).
+  TypeSafe Jev uses `/v1/systemone` and multipart PNG assets. Cropping uses Pillow;
+  metrics are stdlib-only (`math`, `statistics`, `json`).
 - Frontend: vanilla HTML/CSS/JS in `index.html`, no build step. Loads
   `./data/results_<key>.json` (one file per backend). Three sections:
   accuracy-vs-size chart (mean default, single-model dropdown), model comparison

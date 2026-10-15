@@ -22,6 +22,7 @@ How do decision models perform as visual decision complexity increases? I wanted
 | Cloudflare Clef-flash 9B (`@cf/cloudflare/clef-flash`) | 0.9553 | $0.27 | 622 ms | 1,674 ms |
 | OpenAI Decisions API (GPT-6 Luna, public beta) | 0.9435 | $0.10 | 226 ms | 1,802 ms |
 | Cloudflare Clef-omni 30B-A3B (`@cf/cloudflare/clef-omni`) | 0.9585 | $0.11 | 391 ms | 1,372 ms |
+| TypeSafe Jev 1.14.0 (image input preview) | pending | pending | pending | pending |
 
 ## Dataset — COCO Photo Crops
 
@@ -44,8 +45,9 @@ Grid spec: 150 images (30 each of 3×3, 3×4, 4×4, 4×5, 5×5).
 ## Reproducing the Eval
 - **OpenAI**: create a key at `platform.openai.com` (needs billing credit), export `OPENAI_API_KEY`. Calls go to `POST https://api.openai.com/v1/decisions` with `model: gpt-6-luna` and one `predicate` question per cell crop (see the [Decisions guide](https://developers.openai.com/api/docs/guides/decisions)).
 - **Cloudflare**: from your Cloudflare dashboard, note your account ID and create an API token with the Workers AI permission; export `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. Calls go to `POST https://api.cloudflare.com/client/v4/accounts/{id}/ai/run/@cf/cloudflare/clef-flash` with a `noul` question plus native `criteria` (see [clef-flash docs](https://developers.cloudflare.com/workers-ai/models/clef-flash/)).
+- **TypeSafe Jev**: create an API key in the TypeSafe developer console and export `TYPESAFE_API_KEY`. Install Pillow if needed (`python -m pip install Pillow`), then run `python eval_jev.py`; it pins `jev-1.14.0`, sends one crop per `POST /v1/systemone` request with the experimental image header, and writes `data/results_jev.json`. TypeSafe marks image input as experimental; see its [image docs](https://docs.typesafe.ai/images) and [model list](https://docs.typesafe.ai/models).
 
-Each cell crop is sent as an inline base64 PNG with the fixed question: 
+Each cell crop is sent as an inline base64 PNG for the existing OpenAI and Cloudflare backends. Jev uses the same PNG crop as a multipart image asset. The fixed question is:
 > Is a stoplight visible in this image?
 
 ## Build it Yourself
