@@ -10,6 +10,8 @@
 .wrap{max-width:1080px;margin:0 auto;padding:28px 18px 80px}
 .term{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;white-space:pre;color:var(--grn)}
 h1{font-size:26px;margin:18px 0 4px}.sub{color:var(--dim);margin:0 0 14px}
+.repo-link{display:inline-flex;align-items:center;gap:7px;margin-bottom:4px;padding:7px 11px;border:1px solid var(--line);border-radius:8px;color:var(--txt);text-decoration:none;font-size:13px}
+.repo-link:hover,.repo-link:focus-visible{border-color:var(--grn);color:var(--grn)}
 .sec{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin:16px 0}
 .sec h2{font-size:15px;margin:0 0 4px;letter-spacing:.04em}.sec h2::before{content:"├── ";color:var(--dim)}
 .rule{border-top:1px dashed var(--line);margin:12px 0}
@@ -79,6 +81,7 @@ img.thumb{width:64px;height:64px;object-fit:cover;border:1px solid #e8eef7;borde
 </head>
 <body>
 <div class="wrap">
+<a class="repo-link" href="https://github.com/hsmahon/strands-decider-vision-eval">View on GitHub <span aria-hidden="true">↗</span></a>
 <h1>Evaluating Decision Models on Visual Complexity Using CAPTCHAs</h1>
 <p class="sub">Synthetic benchmark only (not for bypassing real CAPTCHAs). Per-cell question: <b>“Is a stoplight visible in this image?”</b> · 150 images · 2,460 cell decisions</p>
 <div id="pending" class="banner" style="display:none">No model results yet.</div>
@@ -111,6 +114,8 @@ const BACKENDS=[
   {key:"jev",label:"Jev 1.14 via OpenRouter",short:"jev-1.14",color:"#42D6C5",local:false},
   {key:"liquid-d1",label:"Liquid d1",short:"d1",color:"#6FA8FF",local:false},
   {key:"liquid-d1-ultra",label:"Liquid d1-ultra",short:"d1-ultra",color:"#FF9F68",local:false},
+  {key:"pplx-decider-flash-v1.2",label:"Perplexity Decider Flash V1.2",short:"pplx-flash",color:"#A8D672",local:false},
+  {key:"pplx-decider-v1.2",label:"Perplexity Decider V1.2",short:"pplx",color:"#E58CC7",local:false},
 ];
 const ORDER=["3x3","3x4","4x4","4x5","5x5"], DIFFS=["easy","medium","hard"];
 let RS={}, R=null, sortK="cell_acc", sortDir=1, onlyPerfect=false, lbPage=0;

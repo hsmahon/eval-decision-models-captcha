@@ -15,6 +15,7 @@ import urllib.error
 import urllib.request
 import uuid
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -27,6 +28,7 @@ IMAGES_DIR = ROOT / "data/images"
 RESULT_PATH = ROOT / "data/results_jev.json"
 PROGRESS_PATH = ROOT / "data/.jev_progress.json"
 MODEL = "typesafe/jev-1.14"
+BACKEND = "openrouter-typesafe-jev"
 API_URL = "https://openrouter.ai/api/alpha/decisions"
 PROMPT = "Is a stoplight visible in this image?"
 CRITERIA = {
@@ -244,8 +246,11 @@ def request_decision(label: dict, cell_index: int, token: str) -> tuple[dict, in
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit-images", type=int, help="Run only the first N labeled images (for an API smoke run)")
+    parser.add_argument("--workers", type=int, default=1, help="Concurrent cell requests (default: 1)")
     parser.add_argument("--fresh", action="store_true", help="Discard a previous partial run and start over")
     args = parser.parse_args()
+    if args.workers < 1:
+        parser.error("--workers must be positive")
     token = os.environ.get("OPENROUTER_API_KEY")
     if not token:
         print("Set OPENROUTER_API_KEY before running this evaluation.", file=sys.stderr)
@@ -276,11 +281,15 @@ def main() -> int:
     completed = {(d["image_id"], d["cell_index"]) for d in decisions}
     started = time.monotonic()
     total = sum(x["rows"] * x["cols"] for x in labels)
-    for label in labels:
-        for cell_index in range(label["rows"] * label["cols"]):
-            if (label["id"], cell_index) in completed:
-                continue
-            decision, used_tokens = request_decision(label, cell_index, token)
+    pending = [(label, cell_index) for label in labels
+               for cell_index in range(label["rows"] * label["cols"])
+               if (label["id"], cell_index) not in completed]
+    with ThreadPoolExecutor(max_workers=args.workers) as executor:
+        futures = {executor.submit(request_decision, label, cell_index, token): (label, cell_index)
+                   for label, cell_index in pending}
+        for future in as_completed(futures):
+            label, cell_index = futures[future]
+            decision, used_tokens = future.result()
             decisions.append(decision)
             input_tokens += used_tokens
             cost_usd += decision["cost_usd"]
@@ -312,7 +321,8 @@ def main() -> int:
             "n_images_run": len({d["image_id"] for d in decisions}),
             "n_images_total": 150,
             "full_run": full_run,
-            "backend": "openrouter-typesafe-jev",
+            "backend": BACKEND,
+            "concurrency": args.workers,
             "refusals": 0,
             "wall_s": round(elapsed_before_resume + time.monotonic() - started, 1),
             "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),

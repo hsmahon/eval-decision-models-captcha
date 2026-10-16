@@ -34,6 +34,15 @@ Liquid d1: 0.9488 accuracy (p50 480 ms, $0.011906); d1-ultra: 0.9606 accuracy
 stored separately in `data/results_liquid-d1.json` and
 `data/results_liquid-d1-ultra.json`.
 
+Perplexity via OpenRouter (`POST /api/alpha/decisions`, same `noul` + criteria and image `state` as Jev):
+Perplexity Decider Flash V1.2: 0.9524 accuracy (p50 312 ms, $0.005633), all 2,460 cells.
+Perplexity Decider V1.2: 0.9524 accuracy (p50 471 ms, $0.011267), all 2,460 cells.
+Pinned IDs: `perplexity/pplx-decider-flash-v1.2` ($0.01/M input tokens) and
+`perplexity/pplx-decider-v1.2` ($0.02/M input tokens). Both served October 16, 2026 releases.
+Results: `data/results_pplx-decider-flash-v1.2.json` and
+`data/results_pplx-decider-v1.2.json`; four concurrent requests per model.
+Reproduce with `eval_perplexity.py --model <pinned-name> --workers 4`.
+
 ## Tech stack
 
 - Model APIs: plain HTTPS calls — Clef-flash via Workers AI REST (`images[]` + `noul`
