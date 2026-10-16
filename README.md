@@ -23,6 +23,8 @@ How do decision models perform as visual decision complexity increases? I wanted
 | OpenAI Decisions API (GPT-6 Luna, public beta) | 0.9435 | $0.10 | 226 ms | 1,802 ms |
 | Cloudflare Clef-omni 30B-A3B (`@cf/cloudflare/clef-omni`) | 0.9585 | $0.11 | 391 ms | 1,372 ms |
 | Jev 1.14 via OpenRouter (`typesafe/jev-1.14`) | 0.9443 | $0.068 | 301 ms | 1,571 ms |
+| Liquid AI d1 | 0.9488 | $0.011906 | 480 ms | 3,256 ms |
+| Liquid AI d1-ultra | 0.9606 | $0.025003 | 267 ms | 1,066 ms |
 
 ## Dataset — COCO Photo Crops
 
@@ -46,8 +48,9 @@ Grid spec: 150 images (30 each of 3×3, 3×4, 4×4, 4×5, 5×5).
 - **OpenAI**: create a key at `platform.openai.com` (needs billing credit), export `OPENAI_API_KEY`. Calls go to `POST https://api.openai.com/v1/decisions` with `model: gpt-6-luna` and one `predicate` question per cell crop (see the [Decisions guide](https://developers.openai.com/api/docs/guides/decisions)).
 - **Cloudflare**: from your Cloudflare dashboard, note your account ID and create an API token with the Workers AI permission; export `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. Calls go to `POST https://api.cloudflare.com/client/v4/accounts/{id}/ai/run/@cf/cloudflare/clef-flash` with a `noul` question plus native `criteria` (see [clef-flash docs](https://developers.cloudflare.com/workers-ai/models/clef-flash/)).
 - **Jev via OpenRouter**: create an OpenRouter API key and export `OPENROUTER_API_KEY`. Install Pillow if needed (`python -m pip install Pillow`), then run `python eval_jev.py`; it pins `typesafe/jev-1.14`, sends one crop per `POST /api/alpha/decisions` request, and writes `data/results_jev.json`.
+- **Liquid AI**: create a key in the Liquid Console and export `LIQUID_API_KEY`. Run `python eval_liquid.py` to evaluate both pinned models (`d1` and `d1-ultra`) through Liquid's decisions API; results are written separately to `data/results_liquid-d1.json` and `data/results_liquid-d1-ultra.json`. Use `--model d1` or `--model d1-ultra` to run one model.
 
-Each cell crop is sent as an inline base64 PNG for the OpenAI, Cloudflare, and Jev backends. The fixed question is:
+Each cell crop is sent as an inline base64 PNG for the OpenAI, Cloudflare, Jev, and Liquid backends. The fixed question is:
 > Is a stoplight visible in this image?
 
 ## Build it Yourself
