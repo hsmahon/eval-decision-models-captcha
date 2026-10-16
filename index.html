@@ -42,6 +42,8 @@ button{cursor:pointer}button.on{border-color:var(--grn);color:var(--grn)}
 .foot{color:var(--dim);font-size:12.5px}
 img.thumb{width:64px;height:64px;object-fit:cover;border:1px solid #e8eef7;border-radius:6px;vertical-align:middle}
 .table-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.model-id{display:inline-flex;align-items:center;gap:5px;min-width:0}
+.model-id .dot{flex:0 0 10px;margin:0}
 @media(max-width:600px){
  body{font-size:14px}
  .wrap{padding:16px 10px 48px}
@@ -147,7 +149,7 @@ function renderCmp(){
   const lat=hd?`${o.lat_median??"—"} / ${o.lat_p95??"—"} / ${o.lat_p99??"—"} ms`:(b.mockLat?`${b.mockLat[0]} / ${b.mockLat[1]} / ${b.mockLat[2]} ms`:`<span class="dim">—</span>`);
   const cost=hd?(((r.manifest||{}).est_cost_usd)??(b.local?"$0.00":"—")):(b.local?"$0.00":(b.mockCost!=null?`~$${b.mockCost.toFixed(2)}`:`<span class="dim">—</span>`));
   const cells=hd?o.n_cells:`<span class="dim">—</span>`;
-  return `<tr><td><span class="dot" style="background:${b.color}"></span>${b.label}</td><td>${cells}</td><td>${hd?pct(o.accuracy):`<span class="dim">—</span>`}</td><td>${hd?(o.f1_pos??"—"):`<span class="dim">—</span>`}</td><td>${lat}</td><td>${typeof cost==="number"?(b.local?"$0.00":`$${cost.toFixed(2)}`):cost}</td></tr>`;}).join("")}</tbody></table>`;
+  return `<tr><td><span class="model-id"><span class="dot" style="background:${b.color}"></span>${b.label}</span></td><td>${cells}</td><td>${hd?pct(o.accuracy):`<span class="dim">—</span>`}</td><td>${hd?(o.f1_pos??"—"):`<span class="dim">—</span>`}</td><td>${lat}</td><td>${typeof cost==="number"?(b.local?"$0.00":`$${cost.toFixed(2)}`):cost}</td></tr>`;}).join("")}</tbody></table>`;
 }
 function renderC1(){
  const fm=$("fmodel").value;
