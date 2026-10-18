@@ -4,6 +4,8 @@
   <img src="./assets/openai.svg" height="40" alt="OpenAI" />
   &nbsp;&nbsp;
   <img src="./assets/cloudflare.svg" height="40" alt="Cloudflare" />
+  &nbsp;&nbsp;
+  <a href="https://openrouter.ai"><img src="./assets/openrouter.svg" height="40" alt="OpenRouter" /></a>
 </p>
 
 How do decision models perform as visual decision complexity increases? I wanted to evaluate decision models on images to see if they could solve an infamous annoyance - CAPTCHAs.
@@ -17,6 +19,8 @@ How do decision models perform as visual decision complexity increases? I wanted
 
 ## Models (leaderboard)
 
+Eight evaluated models, each tested on all 150 images (2,460 cell decisions).
+
 | Model | Accuracy | Cost | p50 | p99 |
 |---|---|---|---|---|
 | Cloudflare Clef-flash 9B (`@cf/cloudflare/clef-flash`) | 0.9553 | $0.27 | 622 ms | 1,674 ms |
@@ -25,7 +29,6 @@ How do decision models perform as visual decision complexity increases? I wanted
 | Jev 1.14 via OpenRouter (`typesafe/jev-1.14`) | 0.9443 | $0.068 | 301 ms | 1,571 ms |
 | Liquid AI d1 | 0.9488 | $0.011906 | 480 ms | 3,256 ms |
 | Liquid AI d1-ultra | 0.9606 | $0.025003 | 267 ms | 1,066 ms |
-
 | Perplexity Decider Flash V1.2 via OpenRouter (`perplexity/pplx-decider-flash-v1.2`) | 0.9524 | $0.005633 | 312 ms | 1,193 ms |
 | Perplexity Decider V1.2 via OpenRouter (`perplexity/pplx-decider-v1.2`) | 0.9524 | $0.011267 | 471 ms | 9,787 ms |
 
